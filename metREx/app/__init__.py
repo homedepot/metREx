@@ -47,9 +47,9 @@ kwargs_api = {
 if env.name is not None:
     pattern = re.compile(
         r"""
-            (?P<title>.*)(?=-v[\d\.\+]+$)
+            (?P<title>.*)(?=-v[0-9.+]+$)
             (?:
-                -v(?P<version>[\d\.\+]+)$
+                -v(?P<version>[0-9.+]+(?:post[0-9]+))$
             )
         """,
         re.X
