@@ -1,8 +1,8 @@
-import json
 import os
 import re
+import yaml
 
-from collections import OrderedDict
+import pytz
 
 
 def apply_job_templates(jobs, templates):
@@ -36,104 +36,125 @@ def build_job_list(jobs, apialchemy_info, sqlalchemy_info):
     """Builds list of scheduled jobs to assign to JOBS"""
     job_list = []
 
+    db_default_local_tz = os.getenv('DB_DEFAULT_LOCAL_TZ')
+
+    if db_default_local_tz not in pytz.all_timezones:
+        db_default_local_tz = 'UTC'
+
     apialchemy_prefix, apialchemy_binds = apialchemy_info
     sqlalchemy_prefix, sqlalchemy_binds = sqlalchemy_info
 
     service_name_pattern = re.compile(r'^' + r'(?:(?:' + re.escape(apialchemy_prefix) + r')|(?:' + re.escape(sqlalchemy_prefix) + r'))(?P<name>.+)$', re.X)
 
     for job_name, credentials in jobs.items():
-        if 'service' in credentials.keys() and 'interval_minutes' in credentials.keys():
-            m = service_name_pattern.match(credentials['service'])
+        if 'services' in credentials.keys() and 'interval_minutes' in credentials.keys():
+            service_names = {}
 
-            if m is not None:
-                components = m.groupdict()
+            for service in credentials['services']:
+                m = service_name_pattern.match(service)
 
-                service_name = components['name']
+                if m is not None:
+                    components = m.groupdict()
 
-                for k, v in credentials.items():
-                    if isinstance(v, str):
-                        undefined_env_vars, credentials[k] = populate_env_vars(v)
-
-                        if undefined_env_vars:
-                            raise ValueError("Job '" + job_name + "' references undefined environment variable(s): " + ", ".join(undefined_env_vars) + ".")
-
-                if service_name in apialchemy_binds.keys():
-                    if 'vendor' in apialchemy_binds[service_name].keys():
-                        job_args = [
-                            apialchemy_binds[service_name]['vendor'],
-                            job_name,
-                            service_name,
-                            int(credentials['interval_minutes']) * 60
-                        ]
-
-                        service_job_args = None
-
-                        if apialchemy_binds[service_name]['vendor'] == 'appdynamics':
-                            if 'application' in credentials.keys():
-                                job_args.append(credentials['application'])
-
-                                if 'metric_path' in credentials.keys():
-                                    service_job_args = [
-                                        credentials['metric_path'],
-                                        credentials['interval_minutes']
-                                    ]
-                        elif apialchemy_binds[service_name]['vendor'] == 'extrahop':
-                            if 'metric_params' in credentials.keys() and 'metric_name' in credentials.keys() and 'aggregation' in credentials.keys():
-                                service_job_args = [
-                                    credentials['metric_params'],
-                                    credentials['metric_name'],
-                                    credentials['aggregation'],
-                                    credentials['interval_minutes']
-                                ]
-
-                        if service_job_args is not None:
-                            job_args += service_job_args
-
-                            if 'static_labels' in credentials.keys():
-                                static_label_list = filter(None, re.split(r',\s*', credentials['static_labels']))
-
-                                job_args.append([
-                                    tuple(filter(None, label_str.split(':'))) for label_str in static_label_list
-                                ])
-
-                            job_list.append(build_job(*job_args))
-
-                            continue
-                elif service_name in sqlalchemy_binds.keys():
-                    if 'statement' in credentials.keys() and 'value_columns' in credentials.keys():
-                        job_args = [
-                            'database',
-                            job_name,
-                            service_name,
-                            int(credentials['interval_minutes']) * 60,
-                            credentials['statement'],
-                            credentials['value_columns'].split(',')
-                        ]
-
-                        if 'static_labels' in credentials.keys():
-                            static_label_list = filter(None, re.split(r',\s*', credentials['static_labels']))
-
-                            job_args.append([
-                                tuple(filter(None, label_str.split(':'))) for label_str in static_label_list
-                            ])
-
-                        if 'timestamp_column' in credentials.keys():
-                            job_args.append(credentials['timestamp_column'])
-
-                            if 'timezone' in sqlalchemy_binds[service_name].keys():
-                                timezone = sqlalchemy_binds[service_name]['timezone']
-                            else:
-                                timezone = os.getenv('DB_DEFAULT_TIMEZONE', 'US/Eastern')
-
-                            job_args.append(timezone)
-
-                        job_list.append(build_job(*job_args))
-
-                        continue
+                    service_names[service] = components['name']
                 else:
-                    raise ValueError("Service '" + credentials['service'] + "' not found.")
+                    raise ValueError("Invalid service name: '" + service + "'.")
 
-        raise ValueError("Missing required credentials for job '" + job_name + "'.")
+            for k, v in credentials.items():
+                if isinstance(v, str):
+                    undefined_env_vars, credentials[k] = populate_env_vars(v)
+
+                    if undefined_env_vars:
+                        raise ValueError("Job '" + job_name + "' references undefined environment variable(s): " + ", ".join(undefined_env_vars) + ".")
+
+            valid_service_names = list(apialchemy_binds.keys()) + list(sqlalchemy_binds.keys())
+
+            for service, name in service_names.items():
+                if name not in valid_service_names:
+                    raise ValueError("Service '" + service + "' not found for job '" + job_name + "'.")
+
+            if all(service_name in apialchemy_binds.keys() and 'vendor' in apialchemy_binds[service_name].keys() for service_name in service_names.values()):
+                vendor = None
+
+                for service_name in service_names.values():
+                    if vendor is None:
+                        vendor = apialchemy_binds[service_name]['vendor']
+
+                    if apialchemy_binds[service_name]['vendor'] != vendor:
+                        raise ValueError("Services defined for job '" + job_name + "' must reference same API vendor.")
+
+                job_args = [
+                    vendor,
+                    job_name,
+                    list(service_names.values()),
+                    int(credentials['interval_minutes']) * 60
+                ]
+
+                service_job_args = None
+
+                if vendor == 'appdynamics':
+                    if 'application' in credentials.keys():
+                        job_args.append(credentials['application'])
+
+                        if 'metric_path' in credentials.keys():
+                            service_job_args = [
+                                credentials['metric_path'],
+                                credentials['interval_minutes']
+                            ]
+                elif vendor == 'extrahop':
+                    if 'metric_params' in credentials.keys() and 'metric_name' in credentials.keys() and 'aggregation' in credentials.keys():
+                        service_job_args = [
+                            credentials['metric_params'],
+                            credentials['metric_name'],
+                            credentials['aggregation'],
+                            credentials['interval_minutes']
+                        ]
+
+                if service_job_args is not None:
+                    job_args += service_job_args
+
+                    if 'static_labels' in credentials.keys():
+                        static_label_list = list(filter(None, re.split(r'\s*,\s*', credentials['static_labels'])))
+
+                        job_args.append([
+                            tuple(filter(None, label_str.split(':'))) for label_str in static_label_list
+                        ])
+
+                    job_list.append(build_job(*job_args))
+
+                    continue
+            elif all(service_name in sqlalchemy_binds.keys() for service_name in service_names.values()):
+                if 'statement' in credentials.keys() and 'value_columns' in credentials.keys():
+                    job_args = [
+                        'database',
+                        job_name,
+                        list(service_names.values()),
+                        int(credentials['interval_minutes']) * 60,
+                        credentials['statement'],
+                        list(filter(None, re.split(r'\s*,\s*', credentials['value_columns'])))
+                    ]
+
+                    if 'static_labels' in credentials.keys():
+                        static_label_list = list(filter(None, re.split(r'\s*,\s*', credentials['static_labels'])))
+
+                        job_args.append([
+                            tuple(filter(None, label_str.split(':'))) for label_str in static_label_list
+                        ])
+
+                    if 'timestamp_column' in credentials.keys():
+                        job_args.append(credentials['timestamp_column'])
+
+                        timezones = {service_name: sqlalchemy_binds[service_name]['timezone'] if 'timezone' in sqlalchemy_binds[service_name].keys() else db_default_local_tz for service_name in service_names.values()}
+
+                        job_args.append(timezones)
+
+                    job_list.append(build_job(*job_args))
+
+                    continue
+            else:
+                raise ValueError("Services defined for job '" + job_name + "' must reference same connection type.")
+
+        raise ValueError("Missing required credential(s) for job '" + job_name + "'.")
 
     return job_list
 
@@ -211,7 +232,7 @@ def get_jobs_from_source(aa, apialchemy_info):
                                                                          jobs_source_path,
                                                                          jobs_source_branch)
 
-                                jobs = json.loads(contents, object_pairs_hook=OrderedDict)
+                                jobs = get_services_from_yaml(yaml.safe_load(contents))
 
                                 jobs_source_templates_path = os.getenv('JOBS_SOURCE_TEMPLATES_PATH')
 
@@ -222,7 +243,7 @@ def get_jobs_from_source(aa, apialchemy_info):
                                                                              jobs_source_templates_path,
                                                                              jobs_source_branch)
 
-                                    templates = json.loads(contents, object_pairs_hook=OrderedDict)
+                                    templates = get_services_from_yaml(yaml.safe_load(contents))
 
                                     jobs = apply_job_templates(jobs, templates)
                         else:
@@ -231,6 +252,17 @@ def get_jobs_from_source(aa, apialchemy_info):
                 raise ValueError("Service '" + jobs_source_service + "' not found.")
 
     return jobs
+
+
+def get_services_from_yaml(yaml_data):
+    services = {}
+
+    if isinstance(yaml_data, dict):
+        for service, credentials in yaml_data.items():
+            if isinstance(credentials, dict):
+                services[service] = credentials
+
+    return services
 
 
 def populate_env_vars(string):

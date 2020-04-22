@@ -48,8 +48,10 @@ INSTALL_REQUIRES = [
 ]
 
 EXTRAS_REQUIRE = {
+    'bigquery': [
+        'pybigquery'
+    ],
     'db2': [
-        'ibm_db',
         'ibm-db-sa'
     ],
     'mssql': [

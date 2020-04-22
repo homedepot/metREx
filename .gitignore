@@ -553,9 +553,6 @@ data/
 # Visual Studio Code settings
 .vscode/
 
-# Cloud Foundry Deployment Configuration
-metREx-cf/
-
 # Secret key file
 secrets.yml
 

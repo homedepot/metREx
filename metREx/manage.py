@@ -24,7 +24,7 @@ app.app_context().push()
 
 manager = Manager(app)
 
-host = os.getenv('CF_INSTANCE_INTERNAL_IP', '127.0.0.1')
+host = os.getenv('CF_INSTANCE_INTERNAL_IP', os.getenv('IP_ADDRESS', '127.0.0.1'))
 port = int(os.getenv('PORT', 5000))
 
 
