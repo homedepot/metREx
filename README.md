@@ -489,7 +489,7 @@ $ metrex
 
 ## Running in Docker
 
-This application can be run inside a [Docker](https://www.docker.com/) container. A prepackaged image is available on [Docker Hub](https://hub.docker.com/repository/docker/homedepottech/metrex).
+This application can be run inside a [Docker](https://www.docker.com/) container. A prepackaged image is available on [Docker Hub](https://hub.docker.com/r/homedepottech/metrex).
 
 It was built with support for the following databases:
 - [Google BigQuery](https://cloud.google.com/bigquery)
