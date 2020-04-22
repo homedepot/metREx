@@ -1,0 +1,18 @@
+# Development files
+**/*.egg-info
+**/__pycache__
+.eggs
+.idea
+.pytest_cache
+
+# Environment
+examples
+metREx/.env
+metREx/env
+test-results
+
+# General files
+.dockerignore
+.git
+.gitignore
+Dockerfile

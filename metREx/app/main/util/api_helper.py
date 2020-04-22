@@ -4,6 +4,8 @@ import re
 
 from urllib import parse
 
+from .misc_helper import str_to_bool
+
 
 def build_conn_str(credentials):
     """Constructs API connection string from credentials."""
@@ -41,7 +43,7 @@ def build_conn_str(credentials):
         hostname_port.append(hostname)
 
     if 'port' in credentials:
-        hostname_port.append(credentials['port'])
+        hostname_port.append(str(credentials['port']))
 
     if len(hostname_port):
         base.append(':'.join(hostname_port))
@@ -58,16 +60,18 @@ def build_bind_dict(binds, key=''):
     """Builds dict of connections to assign to APIALCHEMY_BINDS"""
     bind_dict = {}
 
+    encrypted_credentials = [
+        'apikey',
+        'password'
+    ]
+
     for name, credentials in binds.items():
         if 'encrypted' in credentials.keys():
-            if credentials['encrypted'] == "true":
+            if str_to_bool(credentials['encrypted']):
                 if key != '':
-                    if 'apikey' in credentials.keys():
-                        i = 'apikey'
-                    else:
-                        i = 'password'
-
-                    credentials[i] = decrypt(bytes(key, encoding=encoding), credentials[i]).decode(encoding)
+                    for i in encrypted_credentials:
+                        if i in credentials.keys():
+                            credentials[i] = decrypt(bytes(key, encoding=encoding), credentials[i]).decode(encoding)
                 else:
                     raise ValueError('No secret key found.')
 

@@ -22,7 +22,10 @@ from .util.prometheus_helper import prometheus_multiproc_dir, get_registry, regi
 db = SQLAlchemy()
 aa = APIAlchemy()
 
-registry.register('db2.ibm_db', 'app.main.database.db2.dialect', 'MyDB2Dialect')
+registry.register('bigquery', 'app.main.database.bigquery.dialect', 'MyBigQueryDialect')
+registry.register('bigquery.pybigquery', 'app.main.database.bigquery.dialect', 'MyBigQueryDialect')
+registry.register('db2', 'app.main.database.db2.dialect', 'MyDB2Dialect')
+registry.register('db2.ibm_db_sa', 'app.main.database.db2.dialect', 'MyDB2Dialect')
 
 aps = APScheduler()
 
@@ -60,18 +63,19 @@ def create_app(config_name):
     return app
 
 
-def delete_job(job_name, pushgateway):
+def delete_job(job_name, pushgateways):
     if job_name in registered_collectors.keys():
-        if pushgateway is not None:
+        if len(pushgateways):
             options = {}
 
             if registered_collectors[job_name].instance:
                 options['grouping_key'] = {'instance': registered_collectors[job_name].instance}
 
-            try:
-                pushgateway.delete(job=job_name, **options)
-            except Exception as e:
-                aps.app.logger.warning("Failed removing metrics for job '" + job_name + "' from Pushgateway service: " + str(e))
+            for service, pushgateway in pushgateways.items():
+                try:
+                    pushgateway.delete(job=job_name, **options)
+                except Exception as e:
+                    aps.app.logger.warning("Failed removing metrics for job '" + job_name + "' from Pushgateway service '" + service + "'. " + type(e).__name__ + ": " + str(e))
 
         unregister_collector(job_name, registered_collectors[job_name])
 
@@ -93,7 +97,7 @@ def init_scheduler(config_name):
         config_obj = config_by_name[config_name]()
 
         with aps.app.app_context():
-            config_obj.set_pushgateway(aa)
+            config_obj.set_pushgateways(aa)
 
         aps.app.config.from_object(config_obj)
 
@@ -136,9 +140,9 @@ def set_job_collector_metrics(job_name, collector_metrics):
 
         register_collector(job_name, registered_collectors[job_name])
 
-    pushgateway = aps.app.config.get('PUSHGATEWAY')
+    pushgateways = aps.app.config.get('PUSHGATEWAYS')
 
-    if pushgateway is not None:
+    if len(pushgateways):
         job_collector_registry = get_registry(job_name)
 
         if registered_collectors[job_name].instance is None:
@@ -149,10 +153,13 @@ def set_job_collector_metrics(job_name, collector_metrics):
         if registered_collectors[job_name].instance:
             options['grouping_key'] = {'instance': registered_collectors[job_name].instance}
 
-        try:
-            pushgateway.push(job=job_name, registry=job_collector_registry, **options)
-        except Exception as e:
-            aps.app.logger.warning("Failed sending metrics for job '" + job_name + "' to Pushgateway service: " + str(e))
+        for service, pushgateway in pushgateways.items():
+            try:
+                pushgateway.push(job=job_name, registry=job_collector_registry, **options)
+
+                aps.app.logger.info("Sent metrics for job '" + job_name + "' to Pushgateway service '" + service + "'.")
+            except Exception as e:
+                aps.app.logger.warning("Failed sending metrics for job '" + job_name + "' to Pushgateway service '" + service + "'. " + type(e).__name__ + ": " + str(e))
 
 
 def update_jobs(source_refresh_job_name, config_name):
@@ -162,13 +169,13 @@ def update_jobs(source_refresh_job_name, config_name):
         config_obj = config_by_name[config_name]()
 
         with aps.app.app_context():
-            config_obj.set_pushgateway(aa)
+            config_obj.set_pushgateways(aa)
 
             config_obj.add_jobs_from_source(aa)
 
         job_list = aps.app.config.get('JOBS')
 
-        pushgateway = config_obj.PUSHGATEWAY
+        pushgateways = config_obj.PUSHGATEWAYS
 
         jobs = {}
 
@@ -176,7 +183,7 @@ def update_jobs(source_refresh_job_name, config_name):
             job_name = job_list[i]['id']
 
             if job_name not in config_obj.jobs.keys():
-                delete_job(job_name, pushgateway)
+                delete_job(job_name, pushgateways)
 
                 aps.remove_job(job_name)
 
@@ -193,7 +200,7 @@ def update_jobs(source_refresh_job_name, config_name):
                 run_job = json.dumps(config_obj.JOBS[i]) != json.dumps(jobs[job_name])
 
                 if run_job:
-                    delete_job(job_name, pushgateway)
+                    delete_job(job_name, pushgateways)
 
                     aps.modify_job(**config_obj.JOBS[i])
 
@@ -210,7 +217,7 @@ def update_jobs(source_refresh_job_name, config_name):
 
         aps.app.logger.info("Check for job updates completed.")
     except Exception as e:
-        aps.app.logger.warning("Check for job updates failed: " + str(e))
+        aps.app.logger.warning("Check for job updates failed. " + type(e).__name__ + ": " + str(e))
 
         aps.pause_job(source_refresh_job_name)
 
@@ -222,7 +229,7 @@ class JobCollector:
         self._job_name = job_name
 
     def collect(self):
-        pushgateway = aps.app.config.get('PUSHGATEWAY')
+        pushgateways = aps.app.config.get('PUSHGATEWAYS')
 
         for metric_name, info in job_collector_metrics[self._job_name].items():
             json_label_data = list(info.keys())[0]
@@ -242,7 +249,7 @@ class JobCollector:
 
                 options = {}
 
-                if pushgateway is None:
+                if len(pushgateways) == 0:
                     options['timestamp'] = metric[1]
 
                 g.add_metric(label_dict.values(), metric[0], **options)

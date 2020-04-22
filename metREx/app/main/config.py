@@ -6,12 +6,13 @@ from apscheduler.executors.pool import ProcessPoolExecutor
 
 from cfenv import AppEnv
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 
-from .util import sqlalchemy_helper
 from .util import api_helper
 from .util import apscheduler_helper
+from .util.misc_helper import str_to_bool
 from .util import prometheus_helper
+from .util import sqlalchemy_helper
 
 
 def get_secret_key(file_path):
@@ -26,18 +27,6 @@ def get_secret_key(file_path):
     return secret_key
 
 
-def read_json_from_file(file_path):
-    data = None
-
-    real_file_path = os.path.join(basedir, file_path)
-
-    if os.path.isfile(real_file_path):
-        with open(real_file_path, 'r') as stream:
-            data = json.load(stream)
-
-    return data
-
-
 def read_yaml_from_file(file_path):
     data = None
 
@@ -50,33 +39,30 @@ def read_yaml_from_file(file_path):
     return data
 
 
-def str_to_bool(x):
-    x = str(x)
+basedir = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-    return x.lower() in ('true', 't', 'yes', 'y', '1')
+env_path = os.path.join(basedir, '.env')
 
+if os.path.isfile(env_path):
+    load_dotenv(env_path)
 
-local_env = False
+if os.getenv('VCAP_SERVICES') is None:
+    yaml_data = read_yaml_from_file(os.getenv('SERVICES_PATH', 'env/services.yml'))
 
-env_path = find_dotenv()
+    if isinstance(yaml_data, dict):
+        vcap_services = {
+            'user_provided': []
+        }
 
-if env_path != '':
-    local_env = load_dotenv(env_path)
+        for service, credentials in yaml_data.items():
+            if isinstance(credentials, dict):
+                vcap_services['user_provided'].append({
+                    'name': service,
+                    'label': 'user_provided',
+                    'credentials': credentials
+                })
 
-basedir = os.path.abspath(os.path.dirname(env_path))
-
-if local_env:
-    if os.getenv('VCAP_APPLICATION') is None:
-        json_data = read_json_from_file(os.getenv('VCAP_APPLICATION_PATH', 'env/vcap_application.json'))
-
-        if json_data is not None:
-            os.environ['VCAP_APPLICATION'] = json.dumps(json_data, separators=(', ', ': '), sort_keys=True)
-
-    if os.getenv('VCAP_SERVICES') is None:
-        json_data = read_json_from_file(os.getenv('VCAP_SERVICES_PATH', 'env/vcap_services.json'))
-
-        if json_data is not None:
-            os.environ['VCAP_SERVICES'] = json.dumps(json_data, separators=(', ', ': '), sort_keys=True)
+        os.environ['VCAP_SERVICES'] = json.dumps(vcap_services, separators=(', ', ': '), sort_keys=True)
 
 app_prefix = 'METREX'
 
@@ -97,7 +83,7 @@ class Config:
 
     JOBS_SOURCE_REFRESH_INTERVAL = None
 
-    PUSHGATEWAY = None
+    PUSHGATEWAYS = {}
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -158,8 +144,8 @@ class Config:
         self.APIALCHEMY_BINDS = api_helper.build_bind_dict(self._apialchemy_binds,
                                                            self.SECRET_KEY)
 
-    def set_pushgateway(self, aa):
-        self.PUSHGATEWAY = prometheus_helper.get_pushgateway(aa, (service_prefix['APIALCHEMY'], self.APIALCHEMY_BINDS))
+    def set_pushgateways(self, aa):
+        self.PUSHGATEWAYS = prometheus_helper.get_pushgateways(aa, (service_prefix['APIALCHEMY'], self.APIALCHEMY_BINDS))
 
     @property
     def sqlalchemy_binds(self):
@@ -197,6 +183,7 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = str_to_bool(os.getenv('DEBUG', False))
+
 
 config_by_name = dict(
     dev=DevelopmentConfig,

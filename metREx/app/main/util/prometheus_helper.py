@@ -9,8 +9,8 @@ collector_registries = {}
 prometheus_multiproc_dir = os.getenv('prometheus_multiproc_dir')
 
 
-def get_pushgateway(aa, apialchemy_info):
-    pushgateway = None
+def get_pushgateways(aa, apialchemy_info):
+    pushgateways = {}
 
     apialchemy_prefix, apialchemy_binds = apialchemy_info
 
@@ -18,10 +18,10 @@ def get_pushgateway(aa, apialchemy_info):
 
     api_vendor_pattern = re.compile(r'^(?:(?P<vendor>\w+)(?:\+(?:http|https))?)(?=://)', re.X)
 
-    pushgateway_service = os.getenv('PUSHGATEWAY_SERVICE')
+    pushgateway_services = list(filter(None, re.split(r'\s*,\s*', os.getenv('PUSHGATEWAY_SERVICES', ''))))
 
-    if pushgateway_service is not None:
-        m = service_name_pattern.match(pushgateway_service)
+    for service in pushgateway_services:
+        m = service_name_pattern.match(service)
 
         if m is not None:
             components = m.groupdict()
@@ -42,11 +42,13 @@ def get_pushgateway(aa, apialchemy_info):
                         dal = Pushgateway(aa)
                         dal.init_aa(service_name)
 
-                        pushgateway = dal.client
+                        pushgateways[service] = dal.client
+                    else:
+                        raise ValueError("Service '" + service + "' is not a valid Pushgateway.")
             else:
-                raise ValueError("Service '" + pushgateway_service + "' not found.")
+                raise ValueError("Service '" + service + "' not found.")
 
-    return pushgateway
+    return pushgateways
 
 
 def get_registry(name):
