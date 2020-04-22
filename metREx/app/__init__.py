@@ -49,7 +49,7 @@ if env.name is not None:
         r"""
             (?P<title>.*)(?=-v[0-9.+]+$)
             (?:
-                -v(?P<version>[0-9.+]+(?:post[0-9]+))$
+                -v(?P<version>[0-9.+]+)$
             )
         """,
         re.X
