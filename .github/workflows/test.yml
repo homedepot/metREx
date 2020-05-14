@@ -43,7 +43,9 @@ jobs:
             -r pip/test-requirements.txt
 
       - name: Test with pytest
-        run: pytest tests/ --junitxml=test-results/results.xml --cov=metREx --cov-report=xml --cov-report=html
+        run: |
+          pytest tests/ --junitxml=test-results/results.xml --cov=metREx --cov-report=xml --cov-report=html
+          coveralls
 
       - name: Coveralls
         uses: coverallsapp/github-action@master
