@@ -1,4 +1,3 @@
-# This Dockerfile builds metREx with support for Google BigQuery, Microsoft SQL Server, MySQL, and PostgreSQL
 FROM python:3.7-slim AS build-image
 
 RUN apt-get update && \
@@ -14,11 +13,17 @@ RUN apt-get update && \
     pip install virtualenv
 
 WORKDIR /usr/src
-COPY . .
+COPY pip pip
 ENV PYMSSQL_BUILD_WITH_BUNDLED_FREETDS=1
 RUN virtualenv /opt/venv && \
     . /opt/venv/bin/activate && \
-    pip install .[bigquery,mssql,mysql,postgresql]
+    pip install \
+    -r pip/requirements.txt \
+    -r pip/bigquery-requirements.txt \
+    -r pip/mssql-requirements.txt \
+    -r pip/mysql-requirements.txt \
+    -r pip/postgresql-requirements.txt \
+    -r pip/test-requirements.txt
 
 FROM python:3.7-slim
 
@@ -32,8 +37,9 @@ RUN apt-get update && \
 
 COPY --from=build-image /opt/venv /opt/venv
 
+WORKDIR /usr/src
 ENV IP_ADDRESS=0.0.0.0 \
     PATH="/opt/venv/bin:$PATH" \
     VIRTUAL_ENV="/opt/venv"
 EXPOSE 5000
-CMD ["metrex"]
+CMD ["python3.7", "metREx/manage.py", "run"]
