@@ -5,43 +5,27 @@ on:
     types: [ published ]
 
 jobs:
-  version-check:
-    name: Version Check
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@v1
-      with:
-        python-version: '3.8'
-    - name: Check metREx Version
-      run: |
-        python -m pip install --upgrade pip
-        pip install pypi-version
-        pypi-version check
-  
   publish-to-pypi:
-    name: Publish to PyPi
+    name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [version-check]
     steps:
     - uses: actions/checkout@master
     - name: Setup Python
       uses: actions/setup-python@v1
       with:
-        python-version: '3.8'
+        python-version: '3.7'
     - name: Install Build Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install setuptools wheel twine
     - name: Build
       run: python setup.py sdist
-    - name: Publish to PyPi Test
+    - name: Publish to PyPI Test
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_TEST_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
       run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-    - name: Publish to PyPi Prod
+    - name: Publish to PyPI Prod
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
@@ -50,7 +34,6 @@ jobs:
   publish-to-docker-hub:
     name: Publish to Docker Hub
     runs-on: ubuntu-latest
-    needs: [version-check]
     steps:
     - uses: actions/checkout@master
     - name: Get release version
