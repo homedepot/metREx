@@ -547,16 +547,19 @@ ASALocalRun/
 
 # End of https://www.gitignore.io/api/linux,osx,windows,python,vim,visualstudio
 
+# Docker
+docker-compose.yml
+
 # Prometheus
 data/
-
-# Visual Studio Code settings
-.vscode/
 
 # Secret key file
 secrets.yml
 
 # Test results
 test-results/
+
+# Visual Studio Code settings
+.vscode/
 
 !/bin/

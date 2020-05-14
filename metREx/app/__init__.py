@@ -1,15 +1,16 @@
+import re
+
 from cfenv import AppEnv
 
 from flask import Blueprint, url_for
 from flask_restx import Api
 
-import re
-
-from __init__ import __description__, __title__, __version__
-
 from .main.controller.metrics_controller import api as metrics_ns
 from .main.controller.scheduler_controller import api as scheduler_ns
 
+__title__ = 'metREx'
+__version__ = '0.3.0'
+__description__ = 'SQL query and monitoring system metrics exporter for Prometheus'
 
 blueprint = Blueprint('api', __name__)
 blueprint.config = {}

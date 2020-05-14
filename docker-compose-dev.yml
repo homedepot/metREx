@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  metrex:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    ports:
+      - 5000:5000
+    volumes:
+      - .:/usr/src

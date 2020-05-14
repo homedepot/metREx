@@ -1,9 +1,9 @@
-# Development files
-**/*.egg-info
-**/__pycache__
-.eggs
-.idea
-.pytest_cache
+# General files
+.dockerignore
+.git
+.gitignore
+Dockerfile*
+docker-compose*.yml
 
 # Environment
 examples
@@ -11,8 +11,11 @@ metREx/.env
 metREx/env
 test-results
 
-# General files
-.dockerignore
-.git
-.gitignore
-Dockerfile
+# Development files
+**/*.egg-info
+**/.idea
+**/__pycache__
+.eggs
+.idea
+.pytest_cache
+__pycache__
