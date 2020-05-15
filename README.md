@@ -3,6 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/metREx.svg)](https://badge.fury.io/py/metREx)
 [![GitHub Actions Status](https://github.com/homedepot/metREx/workflows/Tests/badge.svg?branch=master)](https://github.com/homedepot/metREx/actions?query=workflow%3ATests)
 [![Coverage Status](https://coveralls.io/repos/github/homedepot/metREx/badge.svg?branch=master)](https://coveralls.io/github/homedepot/metREx?branch=master)
+[![Docker Pulls](https://img.shields.io/docker/pulls/homedepottech/metrex)](https://hub.docker.com/r/homedepottech/metrex)
 
 SQL query and monitoring system metrics exporter for [Prometheus](https://prometheus.io/). A product of **Reliability Engineering** at [The Home Depot](https://www.homedepot.com/).
 
