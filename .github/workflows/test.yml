@@ -29,7 +29,6 @@ jobs:
 
       - name: Install dependencies
         env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
           PYMSSQL_BUILD_WITH_BUNDLED_FREETDS: 1
         run: |
           sudo apt-get update
@@ -47,4 +46,6 @@ jobs:
         run: pytest tests/ --junitxml=test-results/results.xml --cov=metREx --cov-report=xml --cov-report=html
 
       - name: Coveralls
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         run: coveralls
