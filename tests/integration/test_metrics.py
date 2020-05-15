@@ -3,7 +3,7 @@ import unittest
 
 from flask import current_app
 
-from tests.base import BaseTestCase
+from ..base import BaseTestCase
 
 
 def get_application_metrics(client):

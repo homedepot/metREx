@@ -4,6 +4,12 @@ import yaml
 
 import pytz
 
+package_components = __package__.split('.')
+
+package_components.pop()
+
+job_func_root = '.'.join(package_components)
+
 
 def apply_job_templates(jobs, templates):
     for job_name, credentials in jobs.items():
@@ -24,7 +30,7 @@ def apply_job_templates(jobs, templates):
 
 def build_job(category, name, bind, seconds, *args):
     return {
-        'func': 'app.main.service.metrics_service:generate_metrics',
+        'func': job_func_root + '.service.metrics_service:generate_metrics',
         'trigger': 'interval',
         'args': (category, name, bind) + args,
         'id': name,

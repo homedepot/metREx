@@ -1,5 +1,9 @@
 # metREx
 
+[![PyPI version](https://badge.fury.io/py/metREx.svg)](https://badge.fury.io/py/metREx)
+[![GitHub Actions Status](https://github.com/homedepot/metREx/workflows/Tests/badge.svg)](https://github.com/homedepot/metREx/actions?query=workflow%3ATests)
+[![Coverage Status](https://coveralls.io/repos/github/homedepot/metREx/badge.svg)](https://coveralls.io/github/homedepot/metREx)
+
 SQL query and monitoring system metrics exporter for [Prometheus](https://prometheus.io/). A product of **Reliability Engineering** at [The Home Depot](https://www.homedepot.com/).
 
 Supported database engines include:
@@ -478,12 +482,6 @@ PUSHGATEWAY_SERVICES=METREX_API_PUSHGATEWAY
 Execute the following command:
 
 ```shell
-$ python manage.py run
-```
-
-Alternately, the application can be started with the shortcut:
-
-```shell
 $ metrex
 ```
 
@@ -493,13 +491,14 @@ This application can be run inside a [Docker](https://www.docker.com/) container
 
 It was built with support for the following databases:
 - [Google BigQuery](https://cloud.google.com/bigquery)
+- [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/default.aspx)
 - [MySQL](https://www.mysql.com/)
 - [PostgreSQL](https://www.postgresql.org/)
 
 Sample `docker-compose.yml` file:
 
 ```yaml
-version: "3.7"
+version: "3.8"
 
 services:
   metrex:
@@ -511,8 +510,8 @@ services:
       SERVICES_PATH: /services.yml
       GOOGLE_APPLICATION_CREDENTIALS: /gcp_credentials.json
     volumes:
-      - /path/to/services.yml:/services.yml
       - /path/to/secrets.yml:/secrets.yml
+      - /path/to/services.yml:/services.yml
       - /path/to/gcp_credentials.json:/gcp_credentials.json
 ```
 

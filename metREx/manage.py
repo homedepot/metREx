@@ -3,13 +3,20 @@ import os
 from flask import send_from_directory
 from flask_script import Manager
 
-from app.main import create_app, init_scheduler, run_scheduler
+if __package__ is None:
+    import sys
+
+    __package__ = os.path.basename(sys.path[0])
+
+    sys.path.append(os.path.dirname(sys.path[0]))
+
+from .app.main import create_app, init_scheduler, run_scheduler
 
 
 def register_blueprint():
     global app
 
-    from app import blueprint
+    from .app import blueprint
 
     app.register_blueprint(blueprint)
 

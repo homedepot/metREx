@@ -1,0 +1,12 @@
+cfenv
+cryptofy
+Flask-APIAlchemy
+Flask-APScheduler
+flask-restx
+Flask-Script
+Flask-SQLAlchemy
+numpy
+prometheus-flask-exporter
+python-dotenv
+PyYAML
+SQLAlchemy

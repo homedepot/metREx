@@ -22,10 +22,10 @@ from .util.prometheus_helper import prometheus_multiproc_dir, get_registry, regi
 db = SQLAlchemy()
 aa = APIAlchemy()
 
-registry.register('bigquery', 'app.main.database.bigquery.dialect', 'MyBigQueryDialect')
-registry.register('bigquery.pybigquery', 'app.main.database.bigquery.dialect', 'MyBigQueryDialect')
-registry.register('db2', 'app.main.database.db2.dialect', 'MyDB2Dialect')
-registry.register('db2.ibm_db_sa', 'app.main.database.db2.dialect', 'MyDB2Dialect')
+registry.register('bigquery', __package__ + '.database.bigquery.dialect', 'MyBigQueryDialect')
+registry.register('bigquery.pybigquery', __package__ + '.database.bigquery.dialect', 'MyBigQueryDialect')
+registry.register('db2', __package__ + '.database.db2.dialect', 'MyDB2Dialect')
+registry.register('db2.ibm_db_sa', __package__ + '.database.db2.dialect', 'MyDB2Dialect')
 
 aps = APScheduler()
 
@@ -114,7 +114,7 @@ def init_scheduler(config_name):
                 'seconds': int(source_refresh_interval) * 60
             }
 
-            aps.add_job(source_refresh_job_name, 'app.main:update_jobs', **job_kwargs)
+            aps.add_job(source_refresh_job_name, __package__ + ':update_jobs', **job_kwargs)
     except ValueError as error:
         aps.app.logger.critical(error)
         exit(1)
