@@ -41,7 +41,7 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Get release version
-      run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
+      run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:11})
 
     - name: Build and publish image
       uses: elgohr/Publish-Docker-Github-Action@master
