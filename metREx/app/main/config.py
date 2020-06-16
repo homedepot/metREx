@@ -2,7 +2,7 @@ import json
 import os
 import yaml
 
-from apscheduler.executors.pool import ProcessPoolExecutor
+from apscheduler.executors.pool import ProcessPoolExecutor, ThreadPoolExecutor
 
 from cfenv import AppEnv
 
@@ -13,6 +13,23 @@ from .util import apscheduler_helper
 from .util.misc_helper import str_to_bool
 from .util import prometheus_helper
 from .util import sqlalchemy_helper
+
+
+def build_vcap_services_from_dict(data):
+    vcap_services = {
+        'user_provided': []
+    }
+
+    if isinstance(data, dict):
+        for service, credentials in data.items():
+            if isinstance(credentials, dict):
+                vcap_services['user_provided'].append({
+                    'name': service,
+                    'label': 'user_provided',
+                    'credentials': credentials
+                })
+
+    return json.dumps(vcap_services, separators=(', ', ': '), sort_keys=True)
 
 
 def get_secret_key(file_path):
@@ -46,30 +63,15 @@ env_path = os.path.join(basedir, '.env')
 if os.path.isfile(env_path):
     load_dotenv(env_path)
 
-if os.getenv('VCAP_SERVICES') is None:
-    yaml_data = read_yaml_from_file(os.getenv('SERVICES_PATH', 'env/services.yml'))
-
-    if isinstance(yaml_data, dict):
-        vcap_services = {
-            'user_provided': []
-        }
-
-        for service, credentials in yaml_data.items():
-            if isinstance(credentials, dict):
-                vcap_services['user_provided'].append({
-                    'name': service,
-                    'label': 'user_provided',
-                    'credentials': credentials
-                })
-
-        os.environ['VCAP_SERVICES'] = json.dumps(vcap_services, separators=(', ', ': '), sort_keys=True)
-
 app_prefix = 'METREX'
 
 service_prefix = {
     'APIALCHEMY': os.getenv('API_PREFIX', app_prefix + '_API_'),
     'SQLALCHEMY': os.getenv('DB_PREFIX', app_prefix + '_DB_')
 }
+
+job_prefix = os.getenv('JOB_PREFIX', app_prefix + '_JOB_')
+template_prefix = os.getenv('JOB_PREFIX', app_prefix + '_TEMPLATE_')
 
 
 class Config:
@@ -90,10 +92,7 @@ class Config:
     SCHEDULER_API_ENABLED = False
 
     SCHEDULER_EXECUTORS = {
-        'default': {
-            'type': 'threadpool',
-            'max_workers': int(os.getenv('THREADPOOL_MAX_WORKERS', '20'))
-        },
+        'default': ThreadPoolExecutor(max_workers=int(os.getenv('THREADPOOL_MAX_WORKERS', '20'))),
         'processpool': ProcessPoolExecutor(max_workers=int(os.getenv('PROCESSPOOL_MAX_WORKERS', '10')))
     }
 
@@ -104,6 +103,11 @@ class Config:
     SUSPEND_JOB_ON_FAILURE = str_to_bool(os.getenv('SUSPEND_JOB_ON_FAILURE', False))
 
     def __init__(self):
+        if os.getenv('VCAP_SERVICES') is None:
+            yaml_data = read_yaml_from_file(os.getenv('SERVICES_PATH', 'env/services.yml'))
+
+            os.environ['VCAP_SERVICES'] = build_vcap_services_from_dict(yaml_data)
+
         env = AppEnv()
 
         self.APIALCHEMY_BINDS = {}
@@ -118,9 +122,6 @@ class Config:
 
         if os.getenv('JOBS_SOURCE_SERVICE') is not None:
             self.JOBS_SOURCE_REFRESH_INTERVAL = os.getenv('JOBS_SOURCE_REFRESH_INTERVAL', '60')
-
-        job_prefix = os.getenv('JOB_PREFIX', app_prefix + '_JOB_')
-        template_prefix = os.getenv('JOB_PREFIX', app_prefix + '_TEMPLATE_')
 
         self.service_jobs = apscheduler_helper.get_jobs_from_services(job_prefix, template_prefix, env.services)
         self.source_jobs = {}
@@ -179,6 +180,29 @@ class TestingConfig(Config):
     ENV = 'development'
     TESTING = True
     PRESERVE_CONTEXT_ON_EXCEPTION = False
+
+    def __init__(self):
+        database_service_name = service_prefix['SQLALCHEMY'] + 'TEST'
+
+        services = {
+            database_service_name: {
+                'dialect': 'sqlite'
+            },
+            job_prefix + 'QUERY': {
+                'services': [
+                    database_service_name
+                ],
+                'interval_minutes': 0,
+                'statement': 'SELECT value, label1, label2',
+                'value_columns': 'value',
+                'static_labels': 'static:test',
+                'timestamp_column': 'ts'
+            }
+        }
+
+        os.environ['VCAP_SERVICES'] = build_vcap_services_from_dict(services)
+
+        super(TestingConfig, self).__init__()
 
 
 class ProductionConfig(Config):

@@ -13,21 +13,9 @@ if __package__ is None:
 from .app.main import create_app, init_scheduler, run_scheduler
 
 
-def register_blueprint():
-    global app
-
-    from .app import blueprint
-
-    app.register_blueprint(blueprint)
-
-
 config_name = os.getenv('BOILERPLATE_ENV', 'dev')
 
 app = create_app(config_name)
-
-register_blueprint()
-
-app.app_context().push()
 
 manager = Manager(app)
 
