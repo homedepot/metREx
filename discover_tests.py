@@ -26,7 +26,8 @@ class DiscoverTest(test):
         if not self.pytest_args:
             self.pytest_args = [
                 '-l',
-                '--junitxml=test-results/results.xml', 'tests/unit', 'tests/integration'
+                'tests/',
+                '--junitxml=test-results/results.xml'
             ]
 
             if self.verbose:

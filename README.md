@@ -14,6 +14,7 @@ Supported database engines include:
 - [MySQL](https://www.mysql.com/)
 - [Oracle](https://www.oracle.com/database)
 - [PostgreSQL](https://www.postgresql.org/)
+- [SQLite](https://www.sqlite.org/)
 
 Prometheus metrics can be generated from the following monitoring systems:
 - [AppDynamics](https://www.appdynamics.com/)
@@ -69,6 +70,7 @@ For convenience, a selection of predefined dialects are available for commonly u
 | `mysql`      | `pymysql`    |
 | `oracle`     | `cx_oracle`  |
 | `postgresql` | `pg8000`     |
+| `sqlite`     | `pysqlite`     |
 
 To install any combination of these SQLAlchemy drivers, substitute their dialect identifiers, delimited by commas, within the brackets shown in the previous example *(see [Supported Drivers](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases) for details about other SQLAlchemy drivers not mapped to the predefined dialects above)*.
 
@@ -144,7 +146,9 @@ METREX_DB_BIGQUERY_EXAMPLE:
   location: US
   credentials_path: /path/to/service/account/credentials.json
   dialect: bigquery
-  driver: pybigquery
+METREX_DB_SQLITE_EXAMPLE:
+  path: /path/to/database/file.db
+  dialect: sqlite
 METREX_API_APPD:
   hostname: appdynamics.mydomain.com
   username: user
@@ -167,7 +171,7 @@ METREX_API_GITHUB:
 
 The names assigned to services containing database connection details must begin with the prefix `METREX_DB_` (or the value of the **DB_PREFIX** environment variable). The text that appears after this prefix will be prepended to the names of all Prometheus metrics generated from this service.
 
-For database connections (except BigQuery), the following parameters must be included:
+For database connections (except BigQuery and SQLite), the following parameters must be included:
 - `name`: Database or service name
 - `hostname`: Server name or IP address
 - `port`: Port number
@@ -185,9 +189,14 @@ For BigQuery connections, the following parameters are used:
 - `credentials_info`: Contents of the service account credentials JSON file (optional)*
 - `encrypted`: "true" (recommended) if the `credentials_info` value is encrypted or "false" if it is not (optional, for use only with `credentials_info`)
 - `dialect`: "bigquery"
-- `driver`: "pybigquery"
 
 *NOTE: Either `credentials_path` or `credentials_info` can be used instead of or to override the **GOOGLE_APPLICATION_CREDENTIALS** ENV variable on a per-service basis. `credentials_path` takes precedence if provided in combination with **GOOGLE_APPLICATION_CREDENTIALS** or `credentials_info`.
+
+For SQLite connections, the following parameters are used:
+- `path`: Full path to the database file (optional)*
+- `dialect`: "sqlite"
+
+*NOTE: If `path` is not provided, an in-memory database will be used.
 
 ### API Connection Parameters
 
@@ -495,6 +504,7 @@ It was built with support for the following databases:
 - [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/default.aspx)
 - [MySQL](https://www.mysql.com/)
 - [PostgreSQL](https://www.postgresql.org/)
+- [SQLite](https://www.sqlite.org/)
 
 Sample `docker-compose.yml` file:
 

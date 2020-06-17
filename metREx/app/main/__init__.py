@@ -9,13 +9,14 @@ from flask_sqlalchemy import SQLAlchemy
 
 from prometheus_client import generate_latest
 from prometheus_client.core import GaugeMetricFamily
+
 from prometheus_flask_exporter import PrometheusMetrics
 
 from sqlalchemy.dialects import registry
 
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from .config import app_prefix, config_by_name
+from .config import config_by_name
 
 from .util.prometheus_helper import prometheus_multiproc_dir, get_registry, register_collector, unregister_collector
 
@@ -29,7 +30,9 @@ registry.register('db2.ibm_db_sa', __package__ + '.database.db2.dialect', 'MyDB2
 
 aps = APScheduler()
 
-metrics = PrometheusMetrics(app=None, registry=get_registry('application'))
+app_registry_name = 'application'
+
+metrics = PrometheusMetrics.for_app_factory(registry=get_registry(app_registry_name))
 
 registered_collectors = {}
 
@@ -37,6 +40,8 @@ job_collector_metrics = {}
 
 
 def create_app(config_name):
+    from .. import blueprint
+
     app = Flask(__name__)
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
@@ -55,7 +60,10 @@ def create_app(config_name):
         app.config.from_object(config_obj)
 
         aps.init_app(app)
+
         metrics.init_app(app)
+
+        app.register_blueprint(blueprint)
     except ValueError as error:
         app.logger.critical(error)
         exit(1)

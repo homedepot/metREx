@@ -11,17 +11,24 @@ class TestDevelopmentConfig(BaseTestCase):
 
     def test_app_is_development(self):
         self.assertFalse(current_app is None)
-        self.assertTrue(current_app.debug)
-        self.assertFalse(current_app.testing)
-        # self.assertFalse(current_app.config['SECRET_KEY'] == '')
+        self.assertTrue(self.app.env == 'development')
+        self.assertFalse(self.app.testing)
+        self.assertFalse(self.app.config['RESTPLUS_MASK_SWAGGER'])
+        self.assertTrue(self.app.config['SWAGGER_UI_REQUEST_DURATION'])
+        self.assertFalse(self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'])
+        self.assertFalse(self.app.config['SCHEDULER_API_ENABLED'])
 
 
 class TestTestingConfig(BaseTestCase):
     def test_app_is_testing(self):
         self.assertFalse(current_app is None)
-        self.assertTrue(current_app.debug)
-        self.assertTrue(current_app.testing)
-        # self.assertFalse(current_app.config['SECRET_KEY'] == '')
+        self.assertTrue(self.app.env == 'development')
+        self.assertTrue(self.app.testing)
+        self.assertFalse(self.app.config['RESTPLUS_MASK_SWAGGER'])
+        self.assertTrue(self.app.config['SWAGGER_UI_REQUEST_DURATION'])
+        self.assertFalse(self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'])
+        self.assertFalse(self.app.config['SCHEDULER_API_ENABLED'])
+        self.assertFalse(self.app.config['PRESERVE_CONTEXT_ON_EXCEPTION'])
 
 
 class TestProductionConfig(BaseTestCase):
@@ -30,9 +37,12 @@ class TestProductionConfig(BaseTestCase):
 
     def test_app_is_production(self):
         self.assertFalse(current_app is None)
-        self.assertFalse(current_app.debug)
-        self.assertFalse(current_app.testing)
-        # self.assertFalse(current_app.config['SECRET_KEY'] == '')
+        self.assertTrue(self.app.env == 'production')
+        self.assertFalse(self.app.testing)
+        self.assertFalse(self.app.config['RESTPLUS_MASK_SWAGGER'])
+        self.assertTrue(self.app.config['SWAGGER_UI_REQUEST_DURATION'])
+        self.assertFalse(self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'])
+        self.assertFalse(self.app.config['SCHEDULER_API_ENABLED'])
 
 
 if __name__ == '__main__':

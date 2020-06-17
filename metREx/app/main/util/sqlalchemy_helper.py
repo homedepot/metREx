@@ -81,6 +81,9 @@ def build_dsn(credentials):
             project_dataset_params.append(parse.urlencode(params))
 
         base.append('?'.join(project_dataset_params))
+    elif credentials['dialect'] == 'sqlite':
+        if 'path' in credentials:
+            base.append(credentials['path'])
     else:
         username_password = []
 

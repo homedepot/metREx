@@ -4,8 +4,7 @@ from abc import ABCMeta
 
 from flask_testing import TestCase
 
-from metREx.manage import app
-from metREx.app.main.config import config_by_name
+from metREx.app.main import app_registry_name, create_app, get_jobs, get_registry
 
 
 class BaseTestCase(TestCase):
@@ -14,12 +13,25 @@ class BaseTestCase(TestCase):
     def create_app(self, config_name='test'):
         logging.disable(logging.CRITICAL)
 
-        jobs = app.config.get('JOBS')
+        return create_app(config_name)
 
-        config_obj = config_by_name[config_name]()
+    def tearDown(self):
+        registries = {}
 
-        app.config.from_object(config_obj)
+        app_registry = get_registry(app_registry_name)
 
-        app.config['JOBS'] = jobs
+        registries[app_registry] = list(app_registry._names_to_collectors.values())
 
-        return app
+        jobs = get_jobs()
+
+        for job_id in jobs:
+            job_registry = get_registry(job_id)
+
+            registries[job_registry] = list(job_registry._names_to_collectors.values())
+
+        for registry, collectors in registries.items():
+            for collector in collectors:
+                try:
+                    registry.unregister(collector)
+                except KeyError:
+                    pass
