@@ -30,7 +30,9 @@ registry.register('db2.ibm_db_sa', __package__ + '.database.db2.dialect', 'MyDB2
 
 aps = APScheduler()
 
-metrics = PrometheusMetrics.for_app_factory(registry=get_registry('application'))
+app_registry_name = 'application'
+
+metrics = PrometheusMetrics.for_app_factory(registry=get_registry(app_registry_name))
 
 registered_collectors = {}
 
@@ -58,9 +60,6 @@ def create_app(config_name):
         app.config.from_object(config_obj)
 
         aps.init_app(app)
-
-        if app.testing:
-            metrics._export_defaults = False
 
         metrics.init_app(app)
 

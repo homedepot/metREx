@@ -179,6 +179,8 @@ class TestSchedulerBlueprint(BaseTestCase):
             db.session.commit()
 
     def tearDown(self):
+        super(TestSchedulerBlueprint, self).tearDown()
+
         if self.bind in self.app.config['SQLALCHEMY_BINDS'].keys():
             db.session.remove()
             db.drop_all(bind=self.bind)

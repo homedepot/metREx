@@ -1,9 +1,7 @@
 import secrets
 import unittest
 
-from flask import current_app
-
-from ..base import BaseTestCase
+from ..base import BaseTestCase, get_jobs
 
 
 def get_application_metrics(client):
@@ -18,14 +16,6 @@ def get_job_metrics(client, job_id):
         '/metrics/' + job_id,
         content_type='application/json'
     )
-
-
-def get_jobs():
-    jobs = current_app.config.get('JOBS')
-
-    return [
-        job['id'] for job in jobs
-    ]
 
 
 class TestMetricsBlueprint(BaseTestCase):
