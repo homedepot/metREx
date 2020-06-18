@@ -39,7 +39,7 @@ def build_job(category, name, bind, seconds, *args):
 
 
 def build_job_list(jobs, apialchemy_info, sqlalchemy_info):
-    """Builds list of scheduled jobs to assign to JOBS"""
+    """Builds list of scheduled jobs to assign to SCHEDULER_JOBS"""
     job_list = []
 
     db_default_local_tz = os.getenv('DB_DEFAULT_LOCAL_TZ')

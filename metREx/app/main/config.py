@@ -118,7 +118,7 @@ class Config:
 
         self.sqlalchemy_binds = sqlalchemy_helper.parse_services_for_binds(service_prefix['SQLALCHEMY'], env.services)
 
-        self.JOBS = []
+        self.SCHEDULER_JOBS = []
 
         if os.getenv('JOBS_SOURCE_SERVICE') is not None:
             self.JOBS_SOURCE_REFRESH_INTERVAL = os.getenv('JOBS_SOURCE_REFRESH_INTERVAL', '60')
@@ -167,7 +167,7 @@ class Config:
     def jobs(self, value):
         self._jobs = value
 
-        self.JOBS = apscheduler_helper.build_job_list(self._jobs,
+        self.SCHEDULER_JOBS = apscheduler_helper.build_job_list(self._jobs,
                                                       (service_prefix['APIALCHEMY'], self._apialchemy_binds),
                                                       (service_prefix['SQLALCHEMY'], self._sqlalchemy_binds))
 
@@ -193,8 +193,8 @@ class TestingConfig(Config):
                     database_service_name
                 ],
                 'interval_minutes': 0,
-                'statement': 'SELECT value, label1, label2',
-                'value_columns': 'value',
+                'statement': 'SELECT value AS "metric", label1, label2 FROM metrics',
+                'value_columns': 'metric',
                 'static_labels': 'static:test',
                 'timestamp_column': 'ts'
             }

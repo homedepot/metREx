@@ -4,7 +4,7 @@ from abc import ABCMeta
 
 from flask_testing import TestCase
 
-from metREx.app.main import app_registry_name, create_app, get_jobs, get_registry
+from metREx.app.main import app_registry_name, create_app, get_jobs, get_registry, shutdown_scheduler, start_scheduler
 
 
 class BaseTestCase(TestCase):
@@ -15,7 +15,12 @@ class BaseTestCase(TestCase):
 
         return create_app(config_name)
 
+    def setUp(self):
+        start_scheduler(False)
+
     def tearDown(self):
+        shutdown_scheduler()
+
         registries = {}
 
         app_registry = get_registry(app_registry_name)
