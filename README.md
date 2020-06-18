@@ -70,11 +70,13 @@ For convenience, a selection of predefined dialects are available for commonly u
 | `mysql`      | `pymysql`    |
 | `oracle`     | `cx_oracle`  |
 | `postgresql` | `pg8000`     |
-| `sqlite`     | `pysqlite`     |
+| `sqlite`**   | `pysqlite`   |
 
 To install any combination of these SQLAlchemy drivers, substitute their dialect identifiers, delimited by commas, within the brackets shown in the previous example *(see [Supported Drivers](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases) for details about other SQLAlchemy drivers not mapped to the predefined dialects above)*.
 
-*NOTE: Additional client software may also be required for certain database engines. Installation steps will vary depending on the host operating system.
+*Additional client software may also be required for certain database engines. Installation steps will vary depending on the host operating system.
+
+**SQLite support is included by default; `sqlite` dialect does not need to be installed as an extra.
 
 ## Local Environment Setup
 

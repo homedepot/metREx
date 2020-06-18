@@ -64,7 +64,8 @@ EXTRAS = [
     'mssql',
     'mysql',
     'oracle',
-    'postgresql'
+    'postgresql',
+    'sqlite'
 ]
 
 EXTRAS_REQUIRE = {extra: list(get_requirements_from_file(extra)) for extra in EXTRAS}
