@@ -10,7 +10,7 @@ if __package__ is None:
 
     sys.path.append(os.path.dirname(sys.path[0]))
 
-from .app.main import create_app, init_scheduler, run_scheduler
+from .app.main import create_app, init_scheduler, start_scheduler
 
 
 config_name = os.getenv('BOILERPLATE_ENV', 'dev')
@@ -35,7 +35,7 @@ def run():
     if not (app.debug and os.getenv('WERKZEUG_RUN_MAIN') is None):
         init_scheduler(config_name)
 
-        run_scheduler()
+        start_scheduler()
 
     app.run(host=host, port=port)
 

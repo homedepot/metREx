@@ -60,7 +60,6 @@ def create_app(config_name):
         app.config.from_object(config_obj)
 
         aps.init_app(app)
-
         metrics.init_app(app)
 
         app.register_blueprint(blueprint)
@@ -91,16 +90,16 @@ def delete_job(job_name, pushgateways):
 
 
 def get_jobs():
-    jobs = aps.app.config.get('JOBS')
+    job_list = aps.app.config.get('SCHEDULER_JOBS')
 
     return [
-        job['id'] for job in jobs
+        job['id'] for job in job_list
     ]
 
 
 def init_scheduler(config_name):
     try:
-        jobs = aps.app.config.get('JOBS')
+        job_list = aps.app.config.get('SCHEDULER_JOBS')
 
         config_obj = config_by_name[config_name]()
 
@@ -109,7 +108,7 @@ def init_scheduler(config_name):
 
         aps.app.config.from_object(config_obj)
 
-        aps.app.config['JOBS'] = jobs
+        aps.app.config['SCHEDULER_JOBS'] = job_list
 
         source_refresh_interval = aps.app.config.get('JOBS_SOURCE_REFRESH_INTERVAL')
 
@@ -126,18 +125,6 @@ def init_scheduler(config_name):
     except ValueError as error:
         aps.app.logger.critical(error)
         exit(1)
-
-
-def run_scheduler(run_jobs=True):
-    aps.start()
-
-    initial_run_time = datetime.now() + timedelta(seconds=5)
-
-    for job_name in get_jobs():
-        if run_jobs:
-            aps.modify_job(job_name, next_run_time=initial_run_time)
-        else:
-            aps.pause_job(job_name)
 
 
 def set_job_collector_metrics(job_name, collector_metrics):
@@ -170,6 +157,22 @@ def set_job_collector_metrics(job_name, collector_metrics):
                 aps.app.logger.warning("Failed sending metrics for job '" + job_name + "' to Pushgateway service '" + service + "'. " + type(e).__name__ + ": " + str(e))
 
 
+def shutdown_scheduler():
+    aps.shutdown()
+
+
+def start_scheduler(run_jobs=True):
+    aps.start()
+
+    initial_run_time = datetime.now() + timedelta(seconds=5)
+
+    for job_name in get_jobs():
+        if run_jobs:
+            aps.modify_job(job_name, next_run_time=initial_run_time)
+        else:
+            aps.pause_job(job_name)
+
+
 def update_jobs(source_refresh_job_name, config_name):
     try:
         aps.app.logger.info("Check for job updates started.")
@@ -181,7 +184,7 @@ def update_jobs(source_refresh_job_name, config_name):
 
             config_obj.add_jobs_from_source(aa)
 
-        job_list = aps.app.config.get('JOBS')
+        job_list = aps.app.config.get('SCHEDULER_JOBS')
 
         pushgateways = config_obj.PUSHGATEWAYS
 
@@ -199,22 +202,22 @@ def update_jobs(source_refresh_job_name, config_name):
             else:
                 jobs[job_name] = job_list[i]
 
-        for i in range(len(config_obj.JOBS)):
-            job_name = config_obj.JOBS[i]['id']
+        for i in range(len(config_obj.SCHEDULER_JOBS)):
+            job_name = config_obj.SCHEDULER_JOBS[i]['id']
 
             run_job = True
 
             if job_name in jobs.keys():
-                run_job = json.dumps(config_obj.JOBS[i]) != json.dumps(jobs[job_name])
+                run_job = json.dumps(config_obj.SCHEDULER_JOBS[i]) != json.dumps(jobs[job_name])
 
                 if run_job:
                     delete_job(job_name, pushgateways)
 
-                    aps.modify_job(**config_obj.JOBS[i])
+                    aps.modify_job(**config_obj.SCHEDULER_JOBS[i])
 
                     aps.app.logger.info("Job '" + job_name + "' updated.")
             else:
-                aps.add_job(**config_obj.JOBS[i])
+                aps.add_job(**config_obj.SCHEDULER_JOBS[i])
 
                 aps.app.logger.info("Job '" + job_name + "' added.")
 

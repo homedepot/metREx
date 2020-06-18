@@ -21,8 +21,6 @@ class DiscoverTest(test):
         import pytest
         import sys
 
-        from metREx.manage import run_scheduler
-
         if not self.pytest_args:
             self.pytest_args = [
                 '-l',
@@ -32,7 +30,5 @@ class DiscoverTest(test):
 
             if self.verbose:
                 self.pytest_args.append('--verbose')
-
-        run_scheduler(False)
 
         sys.exit(pytest.main(self.pytest_args))
