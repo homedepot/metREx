@@ -48,7 +48,7 @@ jobs:
       with:
         name: homedepottech/metrex
         username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
         tags: "latest,${{ env.RELEASE_VERSION }}"
 
     - name: Update Docker Hub Description
