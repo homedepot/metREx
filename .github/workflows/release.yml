@@ -51,7 +51,7 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         tags: "latest,${{ env.RELEASE_VERSION }}"
 
-    - name: Update Docker Hub Description
+    - name: Update Docker Hub description
       uses: peter-evans/dockerhub-description@v2
       env:
         DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
