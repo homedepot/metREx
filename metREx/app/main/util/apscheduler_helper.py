@@ -30,7 +30,7 @@ def apply_job_templates(jobs, templates):
 
 def build_job(category, name, bind, seconds, *args):
     return {
-        'func': job_func_root + '.service.metrics_service:generate_metrics',
+        'func': job_func_root + '.service.metrics_service:Metrics.generate_metrics',
         'trigger': 'interval',
         'args': (category, name, bind) + args,
         'id': name,

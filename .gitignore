@@ -547,6 +547,8 @@ ASALocalRun/
 
 # End of https://www.gitignore.io/api/linux,osx,windows,python,vim,visualstudio
 
+metREx/favicon.ico
+
 # Docker
 docker-compose.yml
 

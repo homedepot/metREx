@@ -7,7 +7,7 @@ from datetime import datetime
 from faker import Faker
 
 from ..base import BaseTestCase
-from metREx.app.main.service.metrics_service import db, get_database_metrics, get_metric_info
+from metREx.app.main.service.metrics_service import db, Metrics, get_metric_info
 
 
 class Metric(db.Model):
@@ -43,7 +43,7 @@ class TestDatabaseBlueprint(BaseTestCase):
             self.assertIsInstance(value_columns, list)
 
             if category == 'database':
-                database_metrics = get_database_metrics(*job['args'][1:])
+                database_metrics = Metrics._get_database_metrics(*job['args'][1:])
 
                 self.assertIsInstance(database_metrics, dict)
 
