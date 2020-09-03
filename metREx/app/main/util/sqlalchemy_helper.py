@@ -1,9 +1,8 @@
 import json
+import pytz
 import re
 
 from urllib import parse
-
-import pytz
 
 from cryptofy import encoding, decrypt
 
