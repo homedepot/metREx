@@ -1,4 +1,5 @@
 import json
+import logging
 
 from datetime import datetime, timedelta
 
@@ -51,6 +52,12 @@ def create_app(config_name):
 
         app.config.from_object(config_obj)
 
+        if not app.debug:
+            logger = logging.getLogger('werkzeug')
+            logger.setLevel(logging.ERROR)
+
+            # app.logger.setLevel(logging.ERROR)
+
         db.init_app(app)
         aa.init_app(app)
 
@@ -73,10 +80,14 @@ def create_app(config_name):
 def delete_job(job_name, pushgateways):
     if job_name in registered_collectors.keys():
         if len(pushgateways):
-            options = {}
+            options = {
+                'grouping_key': {
+                    'job': job_name
+                }
+            }
 
             if registered_collectors[job_name].instance:
-                options['grouping_key'] = {'instance': registered_collectors[job_name].instance}
+                options['grouping_key']['instance'] = registered_collectors[job_name].instance
 
             for service, pushgateway in pushgateways.items():
                 try:
@@ -143,10 +154,14 @@ def set_job_collector_metrics(job_name, collector_metrics):
         if registered_collectors[job_name].instance is None:
             generate_latest(job_collector_registry)
 
-        options = {}
+        options = {
+            'grouping_key': {
+                'job': job_name
+            }
+        }
 
         if registered_collectors[job_name].instance:
-            options['grouping_key'] = {'instance': registered_collectors[job_name].instance}
+            options['grouping_key']['instance'] = registered_collectors[job_name].instance
 
         for service, pushgateway in pushgateways.items():
             try:

@@ -8,6 +8,8 @@ from cfenv import AppEnv
 
 from dotenv import load_dotenv
 
+from sqlalchemy.pool import NullPool, SingletonThreadPool
+
 from .util import api_helper
 from .util import apscheduler_helper
 from .util.misc_helper import str_to_bool
@@ -86,6 +88,10 @@ class Config:
     JOBS_SOURCE_REFRESH_INTERVAL = None
 
     PUSHGATEWAYS = {}
+
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'poolclass': NullPool
+    }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -181,6 +187,10 @@ class TestingConfig(Config):
     TESTING = True
     PRESERVE_CONTEXT_ON_EXCEPTION = False
 
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'poolclass': SingletonThreadPool
+    }
+
     def __init__(self):
         database_service_name = service_prefix['SQLALCHEMY'] + 'TEST'
 
@@ -207,6 +217,8 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = str_to_bool(os.getenv('DEBUG', False))
+
+    ERROR_INCLUDE_MESSAGE = str_to_bool(os.getenv('ERROR_INCLUDE_MESSAGE', False))
 
 
 config_by_name = dict(
