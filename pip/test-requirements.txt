@@ -1,5 +1,5 @@
+coveralls
 Faker
 Flask-Testing
-coveralls
 pytest
 pytest-cov

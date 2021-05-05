@@ -1,3 +1,4 @@
+# This Dockerfile builds metREx with support for Google BigQuery, Microsoft SQL Server, MySQL, and PostgreSQL
 FROM python:3.7-slim AS build-image
 
 RUN apt-get update && \

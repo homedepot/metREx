@@ -61,6 +61,7 @@ INSTALL_REQUIRES = list(get_requirements_from_file())
 EXTRAS = [
     'bigquery',
     'db2',
+    'informix',
     'mssql',
     'mysql',
     'oracle',

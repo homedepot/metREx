@@ -5,9 +5,12 @@ import re
 from collections import OrderedDict
 
 from datetime import datetime, timezone
-import pytz
+
+import inflect
 
 from prometheus_client import generate_latest
+
+import pytz
 
 from ..api.appd import AppD
 from ..api.extrahop import ExtraHop
@@ -45,8 +48,19 @@ def format_label(string):
     label = re.sub(r'<', 'less than', label)
     label = re.sub(r'SQL\*Net', 'Net8', label)
     label = re.sub(r'[ \-]', '_', label)
+    label = re.sub(r'\W', '', label)
+    label = re.sub(r'_{2,}', '_', label)
 
     return label.lower()
+
+
+def format_metric(string):
+    metric = re.sub(r'(?<=\S)(/sec)', ' per sec', string)
+    metric = re.sub(r'[ \-]', '_', metric)
+    metric = re.sub(r'\W', '', metric)
+    metric = re.sub(r'_{2,}', '_', metric)
+
+    return metric.lower()
 
 
 def get_metric_info(service):
@@ -66,6 +80,10 @@ def get_metric_info(service):
     return prefix.lower(), instance
 
 
+def is_element_in_iterable_no_case(element, iterable):
+    return element.lower() in [val.lower() for val in list(iterable)]
+
+
 def is_number(n):
     try:
         float(n)
@@ -73,6 +91,16 @@ def is_number(n):
         return False
 
     return True
+
+
+def make_label_singular(label):
+    p = inflect.engine()
+
+    words = label.split('_')
+
+    words.append(p.singular_noun(words.pop()))
+
+    return '_'.join(words)
 
 
 def test_aggregation_match(value, aggregation):
@@ -143,11 +171,29 @@ class Metrics:
 
         pushgateways = aps.app.config.get('PUSHGATEWAYS')
 
+        all_labels = []
+
+        metric_data = {}
+
         for service_name in services:
             prefix, instance = get_metric_info(service_name)
 
             dal = AppD(aa)
             dal.init_aa(service_name)
+
+            tiers = []
+            nodes = []
+
+            if application != 'Database Monitoring':
+                result = dal.client.get_tiers(application)
+
+                for tier_obj in result:
+                    tiers.append(tier_obj.name)
+
+                result = dal.client.get_nodes(application)
+
+                for node_obj in result:
+                    nodes.append(node_obj.name)
 
             options = {
                 'time_range_type': 'BEFORE_NOW',
@@ -160,123 +206,139 @@ class Metrics:
             metrics = []
 
             for metric_obj in result:
-                components = metric_obj.path.split('|')
+                if metric_obj.values:
+                    components = metric_obj.path.split('|')
 
-                if components is not None:
-                    label_dict = OrderedDict()
+                    if components is not None:
+                        metric_profile = [
+                            format_label(components.pop(0)),
+                            format_label(components.pop())
+                        ]
 
-                    if len(pushgateways):
-                        if instance is not None:
-                            label_dict['instance'] = instance
+                        label_dict = OrderedDict([
+                            ('application', application)
+                        ])
 
-                    if application == 'Database Monitoring':
-                        label_dict['collector'] = components.pop(1)
+                        if len(pushgateways):
+                            if instance is not None:
+                                label_dict['instance'] = instance
 
-                        while len(components) > 3:
-                            node = format_label(components.pop(1))
+                        if application == 'Database Monitoring':
+                            label = make_label_singular(metric_profile[0])
 
-                            label_dict[node] = components.pop(1)
-                    else:
-                        label_dict['application'] = application
+                            label_dict[label] = components.pop(0)
 
-                        if components[0] == 'Backends':
-                            pattern = re.compile(r'^(?P<node>Discovered backend call) - (?P<value>.+)$', re.X)
+                            if ':' in components[0]:
+                                label_dict['node'] = components.pop(0)
 
-                            m = pattern.match(components.pop(1))
-
-                            if m is not None:
-                                subcomponents = m.groupdict()
-
-                                node = format_label(subcomponents['node'])
-
-                                label_dict[node] = subcomponents['value']
-                        elif components[0] == 'Service Endpoints':
-                            label_dict['tier'] = components.pop(1)
-                            label_dict['service_endpoint'] = components.pop(1)
-
-                            if components[1] == 'Individual Nodes':
-                                node = format_label(components.pop(1))
-
-                                label_dict[node] = components.pop(1)
-                        elif components[0] == 'Overall Application Performance':
-                            if len(components) > 2:
-                                label_dict['tier'] = components.pop(1)
-
-                                if components[1] == 'Individual Nodes':
-                                    node = format_label(components.pop(1))
-
-                                    label_dict[node] = components.pop(1)
-
-                                while len(components) > 3:
-                                    if components[1] == 'External Calls':
-                                        pattern = re.compile(r'^(?P<node>.+)(?= to Discovered) to Discovered backend call - (?P<value>.+)$', re.X)
-
-                                        m = pattern.match(components.pop(2))
-
-                                        if m is not None:
-                                            subcomponents = m.groupdict()
-
-                                            node = format_label(subcomponents['node'])
-
-                                            label_dict[node] = subcomponents['value']
-                                            break
-                                    else:
-                                        node = format_label(components.pop(1))
-
-                                        label_dict[node] = components.pop(1)
-                        elif components[0] == 'Business Transaction Performance':
-                            if components[1] == 'Business Transaction Groups':
-                                node = format_label(components.pop(1))
-
-                                label_dict[node] = components.pop(1)
-                            elif components[1] == 'Business Transactions':
-                                node = format_label(components.pop(1))
-
-                                label_dict['tier'] = components.pop(1)
-                                label_dict[node] = components.pop(1)
-
-                                if components[1] == 'Individual Nodes':
-                                    node = format_label(components.pop(1))
-
-                                    label_dict[node] = components.pop(1)
-
-                                while len(components) > 3:
-                                    if components[1] == 'External Calls':
-                                        pattern = re.compile(r'^(?P<node>.+)(?= to Discovered) to Discovered backend call - (?P<value>.+)$', re.X)
-
-                                        m = pattern.match(components.pop(2))
-
-                                        if m is not None:
-                                            subcomponents = m.groupdict()
-
-                                            node = format_label(subcomponents['node'])
-
-                                            label_dict[node] = subcomponents['value']
-                                            break
-                                    else:
-                                        node = format_label(components.pop(1))
-
-                                        label_dict[node] = components.pop(1)
-                        elif components[0] == 'Application Infrastructure Performance':
-                            label_dict['tier'] = components.pop(1)
-
-                            if components[1] == 'Individual Nodes':
-                                node = format_label(components.pop(1))
-
-                                label_dict[node] = components.pop(1)
-
-                            while len(components) > 3:
-                                node = format_label(components.pop(1))
-
-                                label_dict[node] = components.pop(1)
+                            for component in components:
+                                metric_profile.insert(len(metric_profile)-1, format_label(component))
                         else:
-                            break
+                            if metric_profile[0] == 'application_infrastructure_performance':
+                                i = 1
 
-                    metric_profile = '_'.join([
-                        format_label(component) for component in components
-                    ])
+                                while i < len(components):
+                                    if components[i] != 'Individual Nodes' and components[i] not in nodes:
+                                        metric_profile.insert(len(metric_profile)-1, format_label(components[i]))
 
-                    if metric_obj.values:
+                                        if components[i-1] == 'JVM':
+                                            if components[i] == 'Garbage Collection':
+                                                label = make_label_singular(format_label(components.pop(i+1)))
+
+                                                label_dict[label] = components.pop(i+1)
+                                            elif components[i] == 'Memory':
+                                                label = format_label(components[i])
+
+                                                label_dict[label] = components.pop(i+1)
+
+                                    i += 1
+                            else:
+                                if metric_profile[0] == 'business_transaction_performance':
+                                    label = make_label_singular(format_label(components.pop(0)))
+
+                                    if label == 'business_transaction_group':
+                                        label_dict[label] = components.pop(0)
+                                    elif label == 'business_transaction':
+                                        label_dict[label] = components.pop(1)
+                                elif metric_profile[0] in ['errors', 'information_points', 'service_endpoints']:
+                                    label = make_label_singular(metric_profile[0])
+
+                                    label_dict[label] = components.pop(1)
+
+                                external_calls_index = 0
+
+                                while len(components) > 0:
+                                    if components[0] in tiers:
+                                        label_dict['tier'] = components.pop(0)
+                                    else:
+                                        pattern = re.compile(r'^(?P<desc>Discovered backend call) - (?P<entity>.+)$')
+
+                                        m = pattern.match(components[0])
+
+                                        if m is not None:
+                                            subcomponents = m.groupdict()
+
+                                            label = format_label(subcomponents['desc'])
+
+                                            label_dict[label] = subcomponents['entity']
+
+                                            components.pop(0)
+                                        else:
+                                            label = make_label_singular(format_label(components.pop(0)))
+
+                                            if label == 'external_call':
+                                                external_calls_index += 1
+
+                                                label_base = '%s_%d' % (label, external_calls_index)
+
+                                                pattern = re.compile(r'^Call-(?P<type>\S+) to (?P<target>.+)$')
+
+                                                m = pattern.match(components.pop(0))
+
+                                                if m is not None:
+                                                    subcomponents = m.groupdict()
+
+                                                    label_dict[label_base] = subcomponents['type']
+
+                                                    pattern = re.compile(r'^(?P<desc>Discovered backend call) - (?P<entity>.+)$')
+
+                                                    m = pattern.match(subcomponents['target'])
+
+                                                    if m is not None:
+                                                        subcomponents = m.groupdict()
+
+                                                        label = '%s_%s' % (label_base, format_label(subcomponents['desc']))
+
+                                                        label_dict[label] = subcomponents['entity']
+                                                    else:
+                                                        label = '%s_tier' % label_base
+
+                                                        label_dict[label] = subcomponents['target']
+
+                                                        if len(components) > 0:
+                                                            components.pop(0)
+                                            elif label == 'incoming_cross_app_call':
+                                                label_base = label
+
+                                                label = '%s_application' % label_base
+
+                                                label_dict[label] = components.pop(0)
+
+                                                pattern = re.compile(r'^Call-(?P<type>\S+) from (?P<source>.+)$')
+
+                                                m = pattern.match(components.pop(0))
+
+                                                if m is not None:
+                                                    subcomponents = m.groupdict()
+
+                                                    label_dict[label_base] = subcomponents['type']
+
+                                                    label = '%s_tier' % label_base
+
+                                                    label_dict[label] = subcomponents['source']
+                                            elif label in ['individual_node', 'thread_task']:
+                                                label_dict[label] = components.pop(0)
+
                         row = metric_obj.values[0].__dict__
 
                         metric_dict = OrderedDict([
@@ -292,23 +354,49 @@ class Metrics:
                             (format_label(label), value) for label, value in static_labels if format_label(label) not in label_dict.keys()
                         ]))
 
+                        for label in label_dict.keys():
+                            if label not in all_labels:
+                                all_labels.append(label)
+
                         timestamp = row['start_time_ms'] / 1000 + (int(minutes) * 60)
 
-                        json_label_data = json.dumps(label_dict)
-
                         for metric in metrics:
-                            metric_name = prefix + '_' + metric_profile + '_' + metric.lower()
+                            metric_name = '%s_%s_%s' % (prefix, '_'.join(metric_profile), metric)
 
-                            if metric_name not in collector_metrics.keys():
-                                collector_metrics[metric_name] = {}
+                            if metric_name not in metric_data.keys():
+                                metric_data[metric_name] = []
 
-                            if json_label_data not in collector_metrics[metric_name]:
-                                collector_metrics[metric_name][json_label_data] = (int(metric_dict[metric]), timestamp)
+                            metric_data[metric_name].append((
+                                label_dict,
+                                int(metric_dict[metric]),
+                                timestamp
+                            ))
+
+        for metric_name, data in metric_data.items():
+            for (label_dict, value, timestamp) in data:
+                normalized_label_dict = OrderedDict()
+
+                for label in all_labels:
+                    if label in label_dict.keys():
+                        normalized_label_dict[label] = label_dict[label]
+                    else:
+                        normalized_label_dict[label] = ''
+
+                json_label_data = json.dumps(normalized_label_dict)
+
+                if metric_name not in collector_metrics.keys():
+                    collector_metrics[metric_name] = {}
+
+                if json_label_data not in collector_metrics[metric_name].keys():
+                    collector_metrics[metric_name][json_label_data] = (value, timestamp)
 
         return collector_metrics
 
     @staticmethod
     def _get_database_metrics(job_name, services, statement, value_columns, static_labels=(), timestamp_column=None, timezones={}):
+        def is_value_column(column):
+            return is_element_in_iterable_no_case(column, value_columns)
+
         collector_metrics = {}
 
         pushgateways = aps.app.config.get('PUSHGATEWAYS')
@@ -328,7 +416,29 @@ class Metrics:
             if timestamp_column is not None and service_name in timezones.keys():
                 db_tzinfo = pytz.timezone(timezones[service_name])
 
+            normalized_value_columns = None
+            normalized_timestamp_column = None
+
             for row in result:
+                def is_unmatched_value_column(column):
+                    return not is_element_in_iterable_no_case(column, row.keys())
+
+                if normalized_value_columns is None:
+                    normalized_value_columns = list(filter(is_value_column, row.keys()))
+
+                    unmatched_value_columns = list(filter(is_unmatched_value_column, value_columns))
+
+                    if unmatched_value_columns:
+                        raise ValueError("Value column(s) " + ", ".join(["'" + column + "'" for column in unmatched_value_columns]) + " specified in job '" + job_name + "' not returned in query result.")
+
+                if timestamp_column is not None and normalized_timestamp_column is None:
+                    for column in row.keys():
+                        if timestamp_column.lower() == column.lower():
+                            normalized_timestamp_column = column
+
+                    if normalized_timestamp_column is None:
+                        raise ValueError("Timestamp column '" + timestamp_column + "' specified in job '" + job_name + "' not returned in query result.")
+
                 label_dict = OrderedDict()
 
                 if len(pushgateways):
@@ -336,29 +446,29 @@ class Metrics:
                         label_dict['instance'] = instance
 
                 label_dict.update(OrderedDict([
-                    (format_label(column), to_string(row[column])) for column in row.keys() if column not in value_columns and column != timestamp_column
+                    (format_label(column), to_string(row[column])) for column in row.keys() if column not in normalized_value_columns and column != normalized_timestamp_column
                 ]))
 
                 label_dict.update(OrderedDict([
                     (format_label(label), value) for label, value in static_labels if format_label(label) not in label_dict.keys()
                 ]))
 
-                if db_tzinfo is not None and timestamp_column in row.keys():
-                    if isinstance(row[timestamp_column], datetime):
-                        if row[timestamp_column].tzinfo is not None and row[timestamp_column].tzinfo.utcoffset(row[timestamp_column]) is not None:
-                            timestamp = row[timestamp_column].timestamp()
+                if db_tzinfo is not None:
+                    if isinstance(row[normalized_timestamp_column], datetime):
+                        if row[normalized_timestamp_column].tzinfo is not None and row[normalized_timestamp_column].tzinfo.utcoffset(row[normalized_timestamp_column]) is not None:
+                            timestamp = row[normalized_timestamp_column].timestamp()
                         else:
-                            timestamp = row[timestamp_column].astimezone(db_tzinfo).timestamp()
+                            timestamp = row[normalized_timestamp_column].astimezone(db_tzinfo).timestamp()
 
                 json_label_data = json.dumps(label_dict)
 
-                for column in value_columns:
-                    metric_name = prefix + '_' + column.lower()
+                for column in normalized_value_columns:
+                    metric_name = '%s_%s' % (prefix, format_metric(column))
 
                     if metric_name not in collector_metrics.keys():
                         collector_metrics[metric_name] = {}
 
-                    if json_label_data not in collector_metrics[metric_name]:
+                    if json_label_data not in collector_metrics[metric_name].keys():
                         collector_metrics[metric_name][json_label_data] = (row[column], timestamp)
 
         return collector_metrics
@@ -367,12 +477,12 @@ class Metrics:
     def _get_extrahop_metrics(job_name, services, params, metric, aggregation, minutes, static_labels=()):
         collector_metrics = {}
 
+        aggregation = test_aggregation_settings(aggregation, job_name)
+
         pushgateways = aps.app.config.get('PUSHGATEWAYS')
 
         for service_name in services:
             prefix, instance = get_metric_info(service_name)
-
-            aggregation = test_aggregation_settings(aggregation, job_name)
 
             dal = ExtraHop(aa)
             dal.init_aa(service_name)
@@ -418,12 +528,12 @@ class Metrics:
                     json_label_data = json.dumps(label_dict)
 
                     for func in aggregation['funcs']:
-                        metric_name = prefix + '_' + metric.lower() + '_' + func.lower()
+                        metric_name = '%s_%s_%s' % (prefix, format_metric(metric), func.lower())
 
                         if metric_name not in collector_metrics.keys():
                             collector_metrics[metric_name] = {}
 
-                        if json_label_data not in collector_metrics[metric_name]:
+                        if json_label_data not in collector_metrics[metric_name].keys():
                             collector_metrics[metric_name][json_label_data] = (aggregate_values_by_func(func, values), timestamp)
 
         return collector_metrics

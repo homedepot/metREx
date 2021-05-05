@@ -37,7 +37,7 @@ def build_dsn(credentials):
     """Constructs SQLAlchemy DSN string from credentials."""
     dialect_driver = [credentials['dialect']]
 
-    if 'driver' in credentials:
+    if 'driver' in credentials.keys():
         dialect_driver.append(credentials['driver'])
 
     base = []
@@ -81,28 +81,67 @@ def build_dsn(credentials):
 
         base.append('?'.join(project_dataset_params))
     elif credentials['dialect'] == 'sqlite':
-        if 'path' in credentials:
+        if 'path' in credentials.keys():
             base.append(credentials['path'])
     else:
-        username_password = []
+        hostname_port = [credentials['hostname']]
 
-        if 'username' in credentials:
-            username_password.append(parse.quote(credentials['username']))
+        if 'port' in credentials.keys():
+            hostname_port.append(str(credentials['port']))
 
-        if 'password' in credentials:
-            username_password.append(parse.quote(credentials['password']))
+        if 'driver' in credentials.keys() and credentials['dialect'] == 'informix' and credentials['driver'] == 'ifx_jdbc':
+            hostname_port_database_params = [':'.join(hostname_port)]
 
-        if len(username_password):
-            base.append(':'.join(username_password))
+            if 'name' in credentials.keys():
+                database_params = [credentials['name']]
 
-        if credentials['dialect'] == 'oracle':
-            import cx_Oracle
+                params = {
+                    'delimident': 'y'
+                }
 
-            base.append(cx_Oracle.makedsn(host=credentials['hostname'],
-                                          port=str(credentials['port']),
-                                          service_name=credentials['name']))
+                if 'server' in credentials.keys():
+                    params['INFORMIXSERVER'] = credentials['server']
+
+                if 'username' in credentials.keys():
+                    params['user'] = credentials['username']
+
+                if 'password' in credentials.keys():
+                    params['password'] = credentials['password']
+
+                database_params.append(';'.join(key + '=' + parse.quote(val) for key, val in params.items()))
+
+                hostname_port_database_params.append(':'.join(database_params))
+
+            base.append('/'.join(hostname_port_database_params))
         else:
-            base.append(credentials['hostname'] + ':' + str(credentials['port']) + '/' + credentials['name'])
+            username_password = []
+
+            if 'username' in credentials.keys():
+                username_password.append(parse.quote(credentials['username']))
+
+            if 'password' in credentials.keys():
+                username_password.append(parse.quote(credentials['password']))
+
+            if len(username_password):
+                base.append(':'.join(username_password))
+
+            if credentials['dialect'] == 'oracle':
+                import cx_Oracle
+
+                dsn = (cx_Oracle.makedsn(
+                    host=credentials['hostname'],
+                    port=str(credentials['port']),
+                    service_name=credentials['name']
+                ))
+
+                base.append(dsn)
+            else:
+                hostname_port_database = [':'.join(hostname_port)]
+
+                if 'name' in credentials.keys():
+                    hostname_port_database.append(credentials['name'])
+
+                base.append('/'.join(hostname_port_database))
 
     uri = [
         '+'.join(dialect_driver),

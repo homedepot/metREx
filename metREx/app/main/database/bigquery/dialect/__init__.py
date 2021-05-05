@@ -1,9 +1,9 @@
 import json
 
-from pybigquery.sqlalchemy_bigquery import BigQueryDialect
+from pybigquery.sqlalchemy_bigquery import BigQueryDialect as BaseDialect
 
 
-class MyBigQueryDialect(BigQueryDialect):
+class BigQueryDialect(BaseDialect):
     def create_connect_args(self, url):
         query = url.query
 
@@ -12,4 +12,4 @@ class MyBigQueryDialect(BigQueryDialect):
 
             url.query = query
 
-        return super(MyBigQueryDialect, self).create_connect_args(url)
+        return super(BigQueryDialect, self).create_connect_args(url)

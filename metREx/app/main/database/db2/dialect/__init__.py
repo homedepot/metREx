@@ -1,12 +1,12 @@
-from ibm_db_sa.ibm_db import DB2Dialect_ibm_db
+from ibm_db_sa.ibm_db import dialect
 
 
-class MyDB2Dialect(DB2Dialect_ibm_db):
+class DB2Dialect(dialect):
     def get_isolation_level(self, connection):
         return 'CS'
 
     def create_connect_args(self, url):
-        connect_args = super(MyDB2Dialect, self).create_connect_args(url)
+        connect_args = super(DB2Dialect, self).create_connect_args(url)
 
         x = list(connect_args)
         y = list(x[0])
