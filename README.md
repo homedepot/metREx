@@ -63,16 +63,16 @@ $ pip install metREx"[mysql,postgresql]"
 
 For convenience, a selection of predefined dialects are available for commonly used SQLAlchemy driver packages:*
 
-| Dialect      | Driver                   |
-| :---         | :---                     |
-| `bigquery`   | `pybigquery`             |
-| `db2`        | `ibm_db`                 |
-| `informix`   | `ibm_db` or `ifx_jdbc`   |
-| `mssql`      | `pymssql`                |
-| `mysql`      | `pymysql`                |
-| `oracle`     | `cx_oracle`              |
-| `postgresql` | `pg8000`                 |
-| `sqlite`**   | `pysqlite`               |
+| Dialect      | Driver                 |
+| :---         | :---                   |
+| `bigquery`   | `pybigquery`           |
+| `db2`        | `ibm_db`               |
+| `informix`   | `ibm_db` or `ifx_jdbc` |
+| `mssql`      | `pymssql`              |
+| `mysql`      | `pymysql`              |
+| `oracle`     | `cx_oracle`            |
+| `postgresql` | `pg8000`               |
+| `sqlite`**   | `pysqlite`             |
 
 To install any combination of these SQLAlchemy drivers, substitute their dialect identifiers, delimited by commas, within the brackets shown in the previous example *(see [Supported Drivers](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases) for details about other SQLAlchemy drivers not mapped to the predefined dialects above)*.
 
