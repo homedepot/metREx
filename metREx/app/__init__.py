@@ -9,7 +9,7 @@ from .main.controller.metrics_controller import api as metrics_ns
 from .main.controller.scheduler_controller import api as scheduler_ns
 
 __title__ = 'metREx'
-__version__ = '0.6.0'
+__version__ = '0.6.0.post1'
 __description__ = 'SQL query and monitoring system metrics exporter for Prometheus'
 
 blueprint = Blueprint('api', __name__)
