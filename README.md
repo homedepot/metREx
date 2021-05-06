@@ -188,6 +188,7 @@ The parameters to be included for each API connection type are shown below.
 AppDynamics API connections:
 - `hostname`: AppD controller server name or IP address
 - `port`: Port number (optional)
+- `account`: Account name (optional, default: "customer1")
 - `username`: User name
 - `password`: Password
 - `encrypted`: "true" (recommended) if `password` value is encrypted or "false" if it is not
