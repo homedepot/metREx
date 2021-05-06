@@ -34,26 +34,47 @@ def build_vcap_services_from_dict(data):
     return json.dumps(vcap_services, separators=(', ', ': '), sort_keys=True)
 
 
-def get_secret_key(file_path):
+def get_real_file_path(file_path):
+    return os.path.join(basedir, file_path)
+
+
+def get_secret_key_from_file(file_path, default_file_path):
     secret_key = ''
 
-    yaml_data = read_yaml_from_file(file_path)
+    if file_path is None:
+        if os.path.isfile(get_real_file_path(default_file_path)):
+            file_path = default_file_path
 
-    if yaml_data is not None:
+    if file_path is not None:
+        yaml_data = read_yaml_from_file(file_path)
+
         if 'secret-key' in yaml_data.keys():
             secret_key = yaml_data['secret-key']
 
     return secret_key
 
 
+def get_services_from_file(file_path, default_file_path):
+    services = {}
+
+    if file_path is None:
+        if os.path.isfile(get_real_file_path(default_file_path)):
+            file_path = default_file_path
+
+    if file_path is not None:
+        yaml_data = read_yaml_from_file(file_path)
+
+        services = build_vcap_services_from_dict(yaml_data)
+
+    return services
+
+
 def read_yaml_from_file(file_path):
-    data = None
-
-    real_file_path = os.path.join(basedir, file_path)
-
-    if os.path.isfile(real_file_path):
-        with open(real_file_path, 'r') as stream:
+    try:
+        with open(get_real_file_path(file_path), 'r') as stream:
             data = yaml.safe_load(stream)
+    except Exception as err:
+        raise ValueError(err)
 
     return data
 
@@ -79,7 +100,7 @@ template_prefix = os.getenv('JOB_PREFIX', app_prefix + '_TEMPLATE_')
 class Config:
     DEBUG = str_to_bool(os.getenv('DEBUG', True))
     TESTING = False
-    SECRET_KEY = os.getenv('SECRET_KEY', get_secret_key(os.getenv('SECRET_PATH', 'secrets.yml')))
+    SECRET_KEY = os.getenv('SECRET_KEY', get_secret_key_from_file(os.getenv('SECRET_PATH'), 'secrets.yml'))
 
     ERROR_INCLUDE_MESSAGE = str_to_bool(os.getenv('ERROR_INCLUDE_MESSAGE', True))
     RESTPLUS_MASK_SWAGGER = False
@@ -90,7 +111,8 @@ class Config:
     PUSHGATEWAYS = {}
 
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'poolclass': NullPool
+        'poolclass': NullPool,
+        'pool_reset_on_return': None
     }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -106,13 +128,13 @@ class Config:
         'misfire_grace_time': int(os.getenv('MISFIRE_GRACE_TIME', '5'))
     }
 
+    SCHEDULER_JOB_DELAY_SECONDS = int(os.getenv('JOB_INITIAL_DELAY_SECONDS', '10'))
+
     SUSPEND_JOB_ON_FAILURE = str_to_bool(os.getenv('SUSPEND_JOB_ON_FAILURE', False))
 
     def __init__(self):
         if os.getenv('VCAP_SERVICES') is None:
-            yaml_data = read_yaml_from_file(os.getenv('SERVICES_PATH', 'env/services.yml'))
-
-            os.environ['VCAP_SERVICES'] = build_vcap_services_from_dict(yaml_data)
+            os.environ['VCAP_SERVICES'] = get_services_from_file(os.getenv('SERVICES_PATH'), 'env/services.yml')
 
         env = AppEnv()
 
@@ -131,13 +153,11 @@ class Config:
 
         self.service_jobs = apscheduler_helper.get_jobs_from_services(job_prefix, template_prefix, env.services)
         self.source_jobs = {}
-
         self.jobs = self.service_jobs
 
     def add_jobs_from_source(self, aa):
         if self.JOBS_SOURCE_REFRESH_INTERVAL is not None:
             self.source_jobs = apscheduler_helper.get_jobs_from_source(aa, (service_prefix['APIALCHEMY'], self.APIALCHEMY_BINDS))
-
             self.jobs = {**self.service_jobs, **self.source_jobs}
 
     @property
@@ -148,8 +168,10 @@ class Config:
     def apialchemy_binds(self, value):
         self._apialchemy_binds = value
 
-        self.APIALCHEMY_BINDS = api_helper.build_bind_dict(self._apialchemy_binds,
-                                                           self.SECRET_KEY)
+        self.APIALCHEMY_BINDS = api_helper.build_bind_dict(
+            self._apialchemy_binds,
+            self.SECRET_KEY
+        )
 
     def set_pushgateways(self, aa):
         self.PUSHGATEWAYS = prometheus_helper.get_pushgateways(aa, (service_prefix['APIALCHEMY'], self.APIALCHEMY_BINDS))
@@ -162,8 +184,10 @@ class Config:
     def sqlalchemy_binds(self, value):
         self._sqlalchemy_binds = value
 
-        self.SQLALCHEMY_BINDS = sqlalchemy_helper.build_bind_dict(self._sqlalchemy_binds,
-                                                                  self.SECRET_KEY)
+        self.SQLALCHEMY_BINDS = sqlalchemy_helper.build_bind_dict(
+            self._sqlalchemy_binds,
+            self.SECRET_KEY
+        )
 
     @property
     def jobs(self):
@@ -173,9 +197,11 @@ class Config:
     def jobs(self, value):
         self._jobs = value
 
-        self.SCHEDULER_JOBS = apscheduler_helper.build_job_list(self._jobs,
-                                                      (service_prefix['APIALCHEMY'], self._apialchemy_binds),
-                                                      (service_prefix['SQLALCHEMY'], self._sqlalchemy_binds))
+        self.SCHEDULER_JOBS = apscheduler_helper.build_job_list(
+            self._jobs,
+            (service_prefix['APIALCHEMY'], self._apialchemy_binds),
+            (service_prefix['SQLALCHEMY'], self._sqlalchemy_binds)
+        )
 
 
 class DevelopmentConfig(Config):
@@ -203,7 +229,7 @@ class TestingConfig(Config):
                     database_service_name
                 ],
                 'interval_minutes': 0,
-                'statement': 'SELECT value AS "metric", label1, label2 FROM metrics',
+                'statement': 'SELECT value AS "metric", label1, label2, ts FROM metrics',
                 'value_columns': 'metric',
                 'static_labels': 'static:test',
                 'timestamp_column': 'ts'
@@ -211,6 +237,9 @@ class TestingConfig(Config):
         }
 
         os.environ['VCAP_SERVICES'] = build_vcap_services_from_dict(services)
+
+        if os.getenv('JOBS_SOURCE_SERVICE') is not None:
+            del os.environ['JOBS_SOURCE_SERVICE']
 
         super(TestingConfig, self).__init__()
 

@@ -14,16 +14,35 @@ def build_conn_str(credentials):
     if 'apikey' in credentials:
         base.append(parse.quote(credentials['apikey']))
     else:
-        username_password = []
+        if credentials['vendor'] == 'appdynamics':
+            username_account = []
 
-        if 'username' in credentials:
-            username_password.append(parse.quote(credentials['username']))
+            if 'username' in credentials:
+                username_account.append(parse.quote(credentials['username']))
 
-        if 'password' in credentials:
-            username_password.append(parse.quote(credentials['password']))
+                if 'account' in credentials:
+                    username_account.append(parse.quote(credentials['account']))
 
-        if len(username_password):
-            base.append(':'.join(username_password))
+            if len(username_account):
+                username_account_password = [
+                    '@'.join(username_account)
+                ]
+
+                if 'password' in credentials:
+                    username_account_password.append(parse.quote(credentials['password']))
+
+                base.append(':'.join(username_account_password))
+        else:
+            username_password = []
+
+            if 'username' in credentials:
+                username_password.append(parse.quote(credentials['username']))
+
+                if 'password' in credentials:
+                    username_password.append(parse.quote(credentials['password']))
+
+            if len(username_password):
+                base.append(':'.join(username_password))
 
     hostname_port = []
 

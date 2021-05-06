@@ -18,7 +18,7 @@ COPY . .
 ENV PYMSSQL_BUILD_WITH_BUNDLED_FREETDS=1
 RUN virtualenv /opt/venv && \
     . /opt/venv/bin/activate && \
-    pip install .[bigquery,mssql,mysql,postgresql]
+    pip install ."[bigquery,mssql,mysql,postgresql]"
 
 FROM python:3.7-slim
 

@@ -3,7 +3,7 @@
 The following ENV variables can be used to configure various application behaviors:
 - **BOILERPLATE_ENV**: (Default: `dev`) The configuration profile applied to running app instances. Possible values: `dev`, `test`, or `prod`.
 - **DEBUG**: (Default: `true` if **BOILERPLATE_ENV** is `dev`, or false otherwise) Whether debug mode is enabled.
-- **IP_ADDRESS**: (Default: `127.0.0.1`) The internal IP address of the running app instance. 
+- **IP_ADDRESS**: (Default: `127.0.0.1`) The internal IP address of the running app instance.
 - **PORT**: (Default: `5000`) The port on which the application listens for requests.
 - **LD_LIBRARY_PATH**: (Linux) A colon-separated list of the directories containing required database client libraries. Required for some SQLAlchemy drivers.
 - **DYLD_LIBRARY_PATH**: (macOS) A colon-separated list of the directories containing required database client libraries. Required for some SQLAlchemy drivers.
@@ -16,6 +16,7 @@ The following ENV variables can be used to configure various application behavio
 - **JOB_PREFIX**: (Default: `METREX_JOB_`) The prefix required for services containing metric exporter job details (not applicable to jobs defined in a GitHub repository).
 - **ERROR_INCLUDE_MESSAGE**: (Default: `true`) Whether to include detailed error messages in API responses. A generic "Internal Server Error" message will be returned on failure when `false`.
 - **SUSPEND_JOB_ON_FAILURE**: (Default: `false`) Whether to suspend metric exporter jobs immediately on failure. Suspended jobs may be resumed manually via the Scheduler API or by restarting the application.
+- **JOB_INITIAL_DELAY_SECONDS**: (Default: `10`) The number of seconds to wait before running each job for the first time. Can be adjusted to allow time for resources to initialize on startup or to avoid conflicts.
 - **APIALCHEMY_APPD_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for AppDynamics API connections.
 - **APIALCHEMY_EXTRAHOP_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for ExtraHop API connections.
 - **APIALCHEMY_GITHUB_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for GitHub API connections.

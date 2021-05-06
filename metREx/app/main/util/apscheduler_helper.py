@@ -131,13 +131,18 @@ def build_job_list(jobs, apialchemy_info, sqlalchemy_info):
                     continue
             elif all(service_name in sqlalchemy_binds.keys() for service_name in service_names.values()):
                 if 'statement' in credentials.keys() and 'value_columns' in credentials.keys():
+                    value_columns = list(filter(None, re.split(r'\s*,\s*', credentials['value_columns'])))
+
+                    if not value_columns:
+                        raise ValueError("No value columns specified for job '" + job_name + "'.")
+
                     job_args = [
                         'database',
                         job_name,
                         list(service_names.values()),
                         int(credentials['interval_minutes']) * 60,
                         credentials['statement'],
-                        list(filter(None, re.split(r'\s*,\s*', credentials['value_columns'])))
+                        value_columns
                     ]
 
                     if 'static_labels' in credentials.keys():
@@ -232,22 +237,26 @@ def get_jobs_from_source(aa, apialchemy_info):
                                 dal = GitHub(aa)
                                 dal.init_aa(service_name)
 
-                                contents = dal.service.get_file_contents(dal.client,
-                                                                         jobs_source_org,
-                                                                         jobs_source_repo,
-                                                                         jobs_source_path,
-                                                                         jobs_source_branch)
+                                contents = dal.service.get_file_contents(
+                                    dal.client,
+                                    jobs_source_org,
+                                    jobs_source_repo,
+                                    jobs_source_path,
+                                    jobs_source_branch
+                                )
 
                                 jobs = get_services_from_yaml(yaml.safe_load(contents))
 
                                 jobs_source_templates_path = os.getenv('JOBS_SOURCE_TEMPLATES_PATH')
 
                                 if jobs_source_templates_path is not None:
-                                    contents = dal.service.get_file_contents(dal.client,
-                                                                             jobs_source_org,
-                                                                             jobs_source_repo,
-                                                                             jobs_source_templates_path,
-                                                                             jobs_source_branch)
+                                    contents = dal.service.get_file_contents(
+                                        dal.client,
+                                        jobs_source_org,
+                                        jobs_source_repo,
+                                        jobs_source_templates_path,
+                                        jobs_source_branch
+                                    )
 
                                     templates = get_services_from_yaml(yaml.safe_load(contents))
 

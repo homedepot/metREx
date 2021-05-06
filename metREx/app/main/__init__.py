@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from flask_apialchemy import APIAlchemy
 from flask_apscheduler import APScheduler
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import _EngineConnector as _EngineConnectorBase, SQLAlchemy as SQLAlchemyBase
 
 from prometheus_client import generate_latest
 from prometheus_client.core import GaugeMetricFamily
@@ -21,13 +21,43 @@ from .config import config_by_name
 
 from .util.prometheus_helper import prometheus_multiproc_dir, get_registry, register_collector, unregister_collector
 
+
+class _EngineConnector(_EngineConnectorBase):
+    def get_options(self, sa_url, echo):
+        sa_url, options = super(_EngineConnector, self).get_options(sa_url, echo)
+
+        if sa_url.drivername.startswith('oracle'):
+            # options.setdefault('max_identifier_length', 30)
+
+            options.setdefault('connect_args', {
+                'events': True
+            })
+
+        poolclass = options.get('poolclass')
+
+        if poolclass and poolclass.__name__ in ['NullPool', 'StaticPool']:
+            if 'pool_size' in options.keys():
+                options.pop('pool_size')
+
+            if 'pool_recycle' in options.keys():
+                options.pop('pool_recycle')
+
+        return sa_url, options
+
+
+class SQLAlchemy(SQLAlchemyBase):
+    def make_connector(self, app=None, bind=None):
+        """Creates the connector for a given state and bind."""
+        return _EngineConnector(self, self.get_app(app), bind)
+
+
 db = SQLAlchemy()
 aa = APIAlchemy()
 
-registry.register('bigquery', __package__ + '.database.bigquery.dialect', 'MyBigQueryDialect')
-registry.register('bigquery.pybigquery', __package__ + '.database.bigquery.dialect', 'MyBigQueryDialect')
-registry.register('db2', __package__ + '.database.db2.dialect', 'MyDB2Dialect')
-registry.register('db2.ibm_db_sa', __package__ + '.database.db2.dialect', 'MyDB2Dialect')
+registry.register('bigquery', __package__ + '.database.bigquery.dialect', 'BigQueryDialect')
+registry.register('bigquery.pybigquery', __package__ + '.database.bigquery.dialect', 'BigQueryDialect')
+registry.register('db2', __package__ + '.database.db2.dialect', 'DB2Dialect')
+registry.register('db2.ibm_db', __package__ + '.database.db2.dialect', 'DB2Dialect')
 
 aps = APScheduler()
 
@@ -179,10 +209,12 @@ def shutdown_scheduler():
 def start_scheduler(run_jobs=True):
     aps.start()
 
-    initial_run_time = datetime.now() + timedelta(seconds=5)
+    initial_run_time = datetime.now()
 
     for job_name in get_jobs():
         if run_jobs:
+            initial_run_time += timedelta(seconds=aps.app.config.get('SCHEDULER_JOB_DELAY_SECONDS'))
+
             aps.modify_job(job_name, next_run_time=initial_run_time)
         else:
             aps.pause_job(job_name)

@@ -8,15 +8,16 @@
 SQL query and monitoring system metrics exporter for [Prometheus](https://prometheus.io/). A product of **Reliability Engineering** at [The Home Depot](https://www.homedepot.com/).
 
 Supported database engines include:
-- [DB2](https://www.ibm.com/products/db2-database) / [Informix](https://www.ibm.com/products/informix)
 - [Google BigQuery](https://cloud.google.com/bigquery)
+- [IBM DB2](https://www.ibm.com/products/db2-database)
+- [IBM Informix](https://www.ibm.com/products/informix) (experimental)
 - [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/default.aspx)
 - [MySQL](https://www.mysql.com/)
 - [Oracle](https://www.oracle.com/database)
 - [PostgreSQL](https://www.postgresql.org/)
 - [SQLite](https://www.sqlite.org/)
 
-Prometheus metrics can be generated from the following monitoring systems:
+Prometheus metrics can also be generated from the following monitoring systems:
 - [AppDynamics](https://www.appdynamics.com/)
 - [ExtraHop](https://www.extrahop.com/)
 
@@ -57,20 +58,21 @@ A variation on the above `pip install` command can be used to include specific S
 In the following example, the dialect identifiers `mysql` and `postgres`, supplied in brackets, will install the `pymysql` and `pg8000` driver packages for MySQL and PostgreSQL database connectivity, respectively:
 
 ```shell
-$ pip install metREx[mysql,postgresql]
+$ pip install metREx"[mysql,postgresql]"
 ```
 
 For convenience, a selection of predefined dialects are available for commonly used SQLAlchemy driver packages:*
 
-| Dialect      | Driver       |
-| :---         | :---         |
-| `bigquery`   | `pybigquery` |
-| `db2`        | `ibm_db_sa`  |
-| `mssql`      | `pymssql`    |
-| `mysql`      | `pymysql`    |
-| `oracle`     | `cx_oracle`  |
-| `postgresql` | `pg8000`     |
-| `sqlite`**   | `pysqlite`   |
+| Dialect      | Driver                 |
+| :---         | :---                   |
+| `bigquery`   | `pybigquery`           |
+| `db2`        | `ibm_db`               |
+| `informix`   | `ibm_db` or `ifx_jdbc` |
+| `mssql`      | `pymssql`              |
+| `mysql`      | `pymysql`              |
+| `oracle`     | `cx_oracle`            |
+| `postgresql` | `pg8000`               |
+| `sqlite`**   | `pysqlite`             |
 
 To install any combination of these SQLAlchemy drivers, substitute their dialect identifiers, delimited by commas, within the brackets shown in the previous example *(see [Supported Drivers](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases) for details about other SQLAlchemy drivers not mapped to the predefined dialects above)*.
 
@@ -121,6 +123,7 @@ METREX_DB_SQLITE_EXAMPLE:
   dialect: sqlite
 METREX_API_APPD:
   hostname: appdynamics.mydomain.com
+  account: account
   username: user
   password: password
   encrypted: false
@@ -361,7 +364,6 @@ JOBS_SOURCE_SERVICE=METREX_API_GITHUB
 JOBS_SOURCE_ORG=org_name
 JOBS_SOURCE_REPO=repo_name
 JOBS_SOURCE_PATH=path/to/jobs.yml
-JOBS_SOURCE_REFRESH_INTERVAL=30
 ```
 
 Changes to the jobs config file referenced by these env variables will be picked up every *x* minutes, per the value assigned to **JOBS_SOURCE_REFRESH_INTERVAL**, and incorporated into the job scheduler. Unlike changes to services, no restart of the application is required for GitHub-hosted job file changes to take effect.
