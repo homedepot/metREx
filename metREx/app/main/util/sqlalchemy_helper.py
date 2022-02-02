@@ -1,8 +1,9 @@
 import json
-import pytz
 import re
 
 from urllib import parse
+
+import pytz
 
 from cryptofy import encoding, decrypt
 
@@ -141,7 +142,25 @@ def build_dsn(credentials):
                 if 'name' in credentials.keys():
                     hostname_port_database.append(credentials['name'])
 
-                base.append('/'.join(hostname_port_database))
+                hostname_port_database_params = ['/'.join(hostname_port_database)]
+
+                if credentials['dialect'] in ['mysql', 'postgresql']:
+                    params = {}
+
+                    valid_params = [
+                        'ssl_ca',
+                        'ssl_cert',
+                        'ssl_key'
+                    ]
+
+                    for name in valid_params:
+                        if name in credentials.keys():
+                            params[name] = credentials[name]
+
+                    if len(params):
+                        hostname_port_database_params.append(parse.urlencode(params))
+
+                base.append('?'.join(hostname_port_database_params))
 
     uri = [
         '+'.join(dialect_driver),
