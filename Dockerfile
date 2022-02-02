@@ -4,8 +4,10 @@ FROM python:3.7-slim AS build-image
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     default-libmysqlclient-dev \
     gcc \
+    jq \
     libcurl4-openssl-dev \
     libpq-dev \
     libssl-dev \
@@ -26,7 +28,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libmariadb-dev-compat \
     libodbc1 \
-    libpq5 && \
+    libpq5 \
+    libxml2 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

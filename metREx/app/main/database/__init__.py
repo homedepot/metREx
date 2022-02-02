@@ -1,3 +1,6 @@
+import os
+import re
+
 from sqlalchemy import text
 
 
@@ -6,6 +9,11 @@ class DatabaseAccessLayer:
 
     def __init__(self, db):
         self._db = db
+
+    def _get_default_isolation_level(self, backend_name):
+        isolation_level_env_var = re.sub(r'\s+', '_', backend_name).upper() + r'_ISOLATION_LEVEL'
+
+        return os.getenv(isolation_level_env_var)
 
     def execute(self, statement):
         result = self._session.execute(text(statement))
@@ -17,10 +25,12 @@ class DatabaseAccessLayer:
 
         options = {}
 
-        backend = engine.url.get_backend_name()
+        backend_name = engine.url.get_backend_name()
 
-        if backend == 'informix':
-            options['isolation_level'] = 'DIRTY READ'
+        default_isolation_level = self._get_default_isolation_level(backend_name)
+
+        if default_isolation_level is not None:
+            options['isolation_level'] = default_isolation_level
 
         self._session = self._db.create_scoped_session({
             'autocommit': False,

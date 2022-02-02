@@ -129,6 +129,9 @@ ipython_config.py
 # pyenv
 .python-version
 
+# Python Index Registry file
+.pypirc
+
 # celery beat schedule file
 celerybeat-schedule
 

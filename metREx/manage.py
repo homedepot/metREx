@@ -10,7 +10,7 @@ if __package__ is None:
 
     sys.path.append(os.path.dirname(sys.path[0]))
 
-from .app.main import create_app, init_scheduler, start_scheduler
+from .app.main import *
 
 
 config_name = os.getenv('BOILERPLATE_ENV', 'dev')
@@ -35,9 +35,7 @@ def favicon():
 @manager.command
 def run():
     if not (app.debug and os.getenv('WERKZEUG_RUN_MAIN') is None):
-        init_scheduler(config_name)
-
-        start_scheduler()
+        start_scheduler(config_name)
 
     app.run(host=host, port=port)
 

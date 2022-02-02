@@ -35,35 +35,38 @@ class TestDatabaseBlueprint(BaseTestCase):
 
         for job in job_list:
             category = job['args'][0]
-            services = job['args'][2]
+            job_name = job['args'][1]
+            service_names = job['args'][2]
+            statement = job['args'][3]
             value_columns = job['args'][4]
 
-            self.assertIsInstance(category, str)
-            self.assertIsInstance(services, list)
+            self.assertEqual(category, 'database')
+            self.assertIsInstance(job_name, str)
+            self.assertIsInstance(service_names, dict)
+            self.assertIsInstance(statement, str)
             self.assertIsInstance(value_columns, list)
 
-            if category == 'database':
-                database_metrics = Metrics._get_database_metrics(*job['args'][1:])
+            database_metrics = Metrics._get_database_metrics(*job['args'][1:])
 
-                self.assertIsInstance(database_metrics, dict)
+            self.assertIsInstance(database_metrics, dict)
 
-                for service_name in services:
-                    prefix, instance = get_metric_info(service_name)
+            for service_name in service_names['source']:
+                prefix, instance = get_metric_info(service_name)
 
-                    for column in value_columns:
-                        metric_name = prefix + '_' + column.lower()
+                for column in value_columns:
+                    metric_name = '%s.%s' % (prefix, column.lower())
 
-                        self.assertIn(metric_name, database_metrics.keys())
+                    self.assertIn(metric_name, database_metrics.keys())
 
-                        for json_label_data, info in database_metrics[metric_name].items():
-                            label_dict = json.loads(json_label_data)
+                    for json_label_data, info in database_metrics[metric_name].items():
+                        label_dict = json.loads(json_label_data)
 
-                            self.assertIsInstance(label_dict, dict)
-                            self.assertIsInstance(info, tuple)
+                        self.assertIsInstance(label_dict, dict)
+                        self.assertIsInstance(info, tuple)
 
-                            metric_value = info[0]
+                        metric_value = info[0]
 
-                            self.assertIsInstance(metric_value, int)
+                        self.assertIsInstance(metric_value, int)
 
     def test_metric_created(self):
         if self.metric is not None:
@@ -75,9 +78,11 @@ class TestDatabaseBlueprint(BaseTestCase):
 
             self.fake = Faker()
 
-            self.metric = Metric(value=secrets.randbelow(255),
-                                 label1=self.fake.text(max_nb_chars=Metric.label1.property.columns[0].type.length),
-                                 label2=self.fake.text(max_nb_chars=Metric.label2.property.columns[0].type.length))
+            self.metric = Metric(
+                value=secrets.randbelow(255),
+                label1=self.fake.text(max_nb_chars=Metric.label1.property.columns[0].type.length),
+                label2=self.fake.text(max_nb_chars=Metric.label2.property.columns[0].type.length)
+            )
 
             db.session.add(self.metric)
 

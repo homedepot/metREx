@@ -1,6 +1,7 @@
-from cryptofy import encoding, decrypt
-
+import os
 import re
+
+from cryptofy import encoding, decrypt
 
 from urllib import parse
 
@@ -9,68 +10,86 @@ from .misc_helper import str_to_bool
 
 def build_conn_str(credentials):
     """Constructs API connection string from credentials."""
-    base = []
+    uri = []
 
-    if 'apikey' in credentials:
-        base.append(parse.quote(credentials['apikey']))
-    else:
-        if credentials['vendor'] == 'appdynamics':
-            username_account = []
+    if 'vendor' in credentials.keys():
+        base = []
 
-            if 'username' in credentials:
-                username_account.append(parse.quote(credentials['username']))
-
-                if 'account' in credentials:
-                    username_account.append(parse.quote(credentials['account']))
-
-            if len(username_account):
-                username_account_password = [
-                    '@'.join(username_account)
-                ]
-
-                if 'password' in credentials:
-                    username_account_password.append(parse.quote(credentials['password']))
-
-                base.append(':'.join(username_account_password))
+        if 'apikey' in credentials.keys():
+            base.append(parse.quote(credentials['apikey']))
         else:
-            username_password = []
+            if credentials['vendor'] == 'appdynamics':
+                username_account = []
+    
+                if 'username' in credentials.keys():
+                    username_account.append(parse.quote(credentials['username']))
+    
+                    if 'account' in credentials.keys():
+                        username_account.append(parse.quote(credentials['account']))
+    
+                if len(username_account):
+                    username_account_password = [
+                        '@'.join(username_account)
+                    ]
+    
+                    if 'password' in credentials.keys():
+                        username_account_password.append(parse.quote(credentials['password']))
+    
+                    base.append(':'.join(username_account_password))
+            else:
+                username_password = []
+    
+                if 'username' in credentials.keys():
+                    username_password.append(parse.quote(credentials['username']))
+    
+                    if 'password' in credentials.keys():
+                        username_password.append(parse.quote(credentials['password']))
+    
+                if len(username_password):
+                    base.append(':'.join(username_password))
 
-            if 'username' in credentials:
-                username_password.append(parse.quote(credentials['username']))
+        hostname_port = []
 
-                if 'password' in credentials:
-                    username_password.append(parse.quote(credentials['password']))
+        scheme = [credentials['vendor']]
 
-            if len(username_password):
-                base.append(':'.join(username_password))
+        if 'hostname' in credentials.keys():
+            url_components = parse.urlparse(credentials['hostname'])
 
-    hostname_port = []
+            if url_components.scheme:
+                scheme.append(url_components.scheme)
 
-    scheme = [credentials['vendor']]
+            if url_components.hostname is not None:
+                hostname = url_components.hostname
+            else:
+                hostname = credentials['hostname']
 
-    if 'hostname' in credentials:
-        url_components = parse.urlparse(credentials['hostname'])
+            hostname_port.append(hostname)
 
-        if url_components.scheme:
-            scheme.append(url_components.scheme)
+        if 'port' in credentials.keys():
+            hostname_port.append(str(credentials['port']))
 
-        if url_components.hostname is not None:
-            hostname = url_components.hostname
-        else:
-            hostname = credentials['hostname']
+        hostname_port_path = []
 
-        hostname_port.append(hostname)
+        if len(hostname_port):
+            hostname_port_path.append(':'.join(hostname_port))
 
-    if 'port' in credentials:
-        hostname_port.append(str(credentials['port']))
+            if credentials['vendor'] == 'appdynamics':
+                if 'application' in credentials.keys():
+                    hostname_port_path.append(parse.quote(credentials['application']))
+            elif credentials['vendor'] == 'newrelic':
+                if 'account_id' in credentials.keys():
+                    hostname_port_path.append(str(credentials['account_id']))
+            elif credentials['vendor'] in ['graphite', 'wavefront']:
+                if 'prefix' in credentials.keys():
+                    hostname_port_path.append(parse.quote(credentials['prefix']))
 
-    if len(hostname_port):
-        base.append(':'.join(hostname_port))
+        if len(hostname_port_path):
+            base.append('/'.join(hostname_port_path))
 
-    uri = ['+'.join(scheme)]
+        uri.append('+'.join(scheme))
 
-    if len(base):
-        uri.append('@'.join(base))
+        if len(base):
+            uri.append('@'.join(base))
 
     return '://'.join(uri)
 
@@ -97,6 +116,50 @@ def build_bind_dict(binds, key=''):
         bind_dict[name] = build_conn_str(credentials)
 
     return bind_dict
+
+
+def get_default_push_service_names(push_services):
+    default_push_service_names = []
+
+    default_push_services = list(filter(None, re.split(r'\s*,\s*', os.getenv('SEND_ALL_JOBS_TO_SERVICES', ''))))
+
+    for services in push_services.values():
+        for service, service_name in services.items():
+            if service in default_push_services and service_name not in default_push_service_names:
+                default_push_service_names.append(service_name)
+
+    return default_push_service_names
+
+
+def get_push_services(prefix, services):
+    push_services = {}
+
+    service_name_pattern = re.compile(r'^' + re.escape(prefix) + r'(?P<name>.+)$', re.X)
+
+    vendors = {
+        'graphite': 'Graphite bridge',
+        'pushgateway': 'Pushgateway',
+        'wavefront': 'Wavefront'
+    }
+
+    for service in services:
+        m = service_name_pattern.match(service.name)
+
+        if m is not None:
+            components = m.groupdict()
+
+            name = components['name']
+
+            if 'vendor' in service.credentials.keys():
+                vendor = service.credentials['vendor']
+
+                if vendor in vendors.keys():
+                    if vendor not in push_services.keys():
+                        push_services[vendor] = {}
+
+                    push_services[vendor][service.name] = name
+
+    return push_services
 
 
 def parse_services_for_binds(prefix, services):

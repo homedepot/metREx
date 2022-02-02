@@ -13,7 +13,6 @@ from sqlalchemy.pool import NullPool, SingletonThreadPool
 from .util import api_helper
 from .util import apscheduler_helper
 from .util.misc_helper import str_to_bool
-from .util import prometheus_helper
 from .util import sqlalchemy_helper
 
 
@@ -79,6 +78,8 @@ def read_yaml_from_file(file_path):
     return data
 
 
+available_cpu_count = len(os.sched_getaffinity(0))
+
 basedir = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 env_path = os.path.join(basedir, '.env')
@@ -106,29 +107,46 @@ class Config:
     RESTPLUS_MASK_SWAGGER = False
     SWAGGER_UI_REQUEST_DURATION = True
 
-    JOBS_SOURCE_REFRESH_INTERVAL = None
+    APIALCHEMY_BINDS = {}
 
-    PUSHGATEWAYS = {}
+    SQLALCHEMY_BINDS = {}
 
     SQLALCHEMY_ENGINE_OPTIONS = {
         'poolclass': NullPool,
+        'pool_pre_ping': True,
         'pool_reset_on_return': None
     }
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    PUSH_SERVICES = {}
+
+    DEFAULT_PUSH_SERVICE_NAMES = []
+
+    WAVEFRONT_SOURCE = os.getenv('WAVEFRONT_SOURCE')
+
+    JOBS_SOURCE_REFRESH_INTERVAL = None
+
+    SCHEDULER_JOBS = []
+
     SCHEDULER_API_ENABLED = False
 
     SCHEDULER_EXECUTORS = {
-        'default': ThreadPoolExecutor(max_workers=int(os.getenv('THREADPOOL_MAX_WORKERS', '20'))),
-        'processpool': ProcessPoolExecutor(max_workers=int(os.getenv('PROCESSPOOL_MAX_WORKERS', '10')))
+        'default': ThreadPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', '10'))),
+        'processpool': ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', str(available_cpu_count))))
     }
 
     SCHEDULER_JOB_DEFAULTS = {
-        'misfire_grace_time': int(os.getenv('MISFIRE_GRACE_TIME', '5'))
+        'executor': 'processpool' if os.getenv('JOB_EXECUTOR', 'ThreadPool').lower() == 'processpool' else 'default',
+        'coalesce': True,
+        'max_instances': int(os.getenv('MAX_INSTANCES', '1')),
+        'misfire_grace_time': int(os.getenv('MISFIRE_GRACE_TIME', '15')),
+        'replace_existing': True
     }
 
-    SCHEDULER_JOB_DELAY_SECONDS = int(os.getenv('JOB_INITIAL_DELAY_SECONDS', '10'))
+    SCHEDULER_JOB_DELAY_SECONDS = int(os.getenv('JOB_INITIAL_DELAY_SECONDS', '15'))
+
+    LIMIT_JOB_EXECUTION_TIME = str_to_bool(os.getenv('LIMIT_JOB_EXECUTION_TIME', False))
 
     SUSPEND_JOB_ON_FAILURE = str_to_bool(os.getenv('SUSPEND_JOB_ON_FAILURE', False))
 
@@ -138,15 +156,13 @@ class Config:
 
         env = AppEnv()
 
-        self.APIALCHEMY_BINDS = {}
-
         self.apialchemy_binds = api_helper.parse_services_for_binds(service_prefix['APIALCHEMY'], env.services)
-
-        self.SQLALCHEMY_BINDS = {}
 
         self.sqlalchemy_binds = sqlalchemy_helper.parse_services_for_binds(service_prefix['SQLALCHEMY'], env.services)
 
-        self.SCHEDULER_JOBS = []
+        self.push_services = api_helper.get_push_services(service_prefix['APIALCHEMY'], env.services)
+
+        self.default_push_service_names = api_helper.get_default_push_service_names(self.push_services)
 
         if os.getenv('JOBS_SOURCE_SERVICE') is not None:
             self.JOBS_SOURCE_REFRESH_INTERVAL = os.getenv('JOBS_SOURCE_REFRESH_INTERVAL', '60')
@@ -173,9 +189,6 @@ class Config:
             self.SECRET_KEY
         )
 
-    def set_pushgateways(self, aa):
-        self.PUSHGATEWAYS = prometheus_helper.get_pushgateways(aa, (service_prefix['APIALCHEMY'], self.APIALCHEMY_BINDS))
-
     @property
     def sqlalchemy_binds(self):
         return self._sqlalchemy_binds
@@ -188,6 +201,26 @@ class Config:
             self._sqlalchemy_binds,
             self.SECRET_KEY
         )
+
+    @property
+    def push_services(self):
+        return self._push_services
+
+    @push_services.setter
+    def push_services(self, value):
+        self._push_services = value
+
+        self.PUSH_SERVICES = self._push_services
+
+    @property
+    def default_push_service_names(self):
+        return self._default_push_service_names
+
+    @default_push_service_names.setter
+    def default_push_service_names(self, value):
+        self._default_push_service_names = value
+
+        self.DEFAULT_PUSH_SERVICE_NAMES = self._default_push_service_names
 
     @property
     def jobs(self):
@@ -217,6 +250,8 @@ class TestingConfig(Config):
         'poolclass': SingletonThreadPool
     }
 
+    LIMIT_JOB_EXECUTION_TIME = False
+
     def __init__(self):
         database_service_name = service_prefix['SQLALCHEMY'] + 'TEST'
 
@@ -230,8 +265,12 @@ class TestingConfig(Config):
                 ],
                 'interval_minutes': 0,
                 'statement': 'SELECT value AS "metric", label1, label2, ts FROM metrics',
-                'value_columns': 'metric',
-                'static_labels': 'static:test',
+                'value_columns': [
+                    'metric'
+                ],
+                'static_labels': {
+                    'static': 'test'
+                },
                 'timestamp_column': 'ts'
             }
         }

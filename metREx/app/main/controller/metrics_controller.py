@@ -3,7 +3,7 @@ from flask_restx import Resource
 
 from prometheus_client import CONTENT_TYPE_LATEST
 
-from ...main import app_registry_name, metrics, prometheus_multiproc_dir, get_jobs
+from ...main import *
 
 from ..service.metrics_service import Metrics
 
