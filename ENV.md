@@ -21,7 +21,7 @@ The following ENV variables can be used to configure various application behavio
 - **APIALCHEMY_APPD_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for AppDynamics API connections.
 - **APIALCHEMY_EXTRAHOP_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for ExtraHop API connections.
 - **APIALCHEMY_GITHUB_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for GitHub API connections.
-- **APIALCHEMY_NEWRELIC_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for NewRelic API connections.
+- **APIALCHEMY_NEWRELIC_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for New Relic API connections.
 - **APIALCHEMY_PUSHGATEWAY_SSL_VERIFY**: (Default: `true`) Whether to perform certificate verification for Pushgateway API connections.
 - **DB_DEFAULT_LOCAL_TZ**: (Default: `UTC`) The localized timezone applied by default to "naive" (non-TZ-aware) `timestamp_column` values** if defined in database-sourced metric exporter jobs (consult the [Time Zone Database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for a complete list of supported TZ names).
 - **JOBS_SOURCE_SERVICE**: The name of the service containing GitHub API connection details.
