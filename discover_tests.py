@@ -25,6 +25,7 @@ class DiscoverTest(test):
             self.pytest_args = [
                 '-l',
                 'tests/',
+                '--cov=metREx/app',
                 '--junitxml=test-results/results.xml'
             ]
 

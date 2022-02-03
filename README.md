@@ -20,6 +20,7 @@ Supported database engines include:
 Prometheus metrics can also be generated from the following monitoring systems:
 - [AppDynamics](https://www.appdynamics.com/)
 - [ExtraHop](https://www.extrahop.com/)
+- [New Relic](https://www.newrelic.com/)
 
 ## Table of Contents
 
@@ -36,7 +37,11 @@ Prometheus metrics can also be generated from the following monitoring systems:
   * [Defining Jobs in a GitHub Repository](#defining-jobs-in-a-github-repository)
   * [Job Parameters](#job-parameters)
   * [About Aggregation](#about-aggregation)
-* [Exposing Metrics to a Pushgateway](#exposing-metrics-to-a-pushgateway)
+* [Pushing Metrics](#pushing-metrics)
+  * [Exposing Metrics to a Pushgateway](#exposing-metrics-to-a-pushgateway)
+  * [Pushing Metrics to a Graphite Bridge](#pushing-metrics-to-a-graphite-bridge)
+  * [Pushing Metrics to Wavefront](#pushing-metrics-to-wavefront)
+  * [Activating Push Services](#activating-push-services)
 * [Running the Application](#running-the-application)
 * [Running in Docker](#running-in-docker)
 * [Swagger](#swagger)
@@ -63,16 +68,16 @@ $ pip install metREx"[mysql,postgresql]"
 
 For convenience, a selection of predefined dialects are available for commonly used SQLAlchemy driver packages:*
 
-| Dialect      | Driver                 |
-| :---         | :---                   |
-| `bigquery`   | `pybigquery`           |
-| `db2`        | `ibm_db`               |
-| `informix`   | `ibm_db` or `ifx_jdbc` |
-| `mssql`      | `pymssql`              |
-| `mysql`      | `pymysql`              |
-| `oracle`     | `cx_oracle`            |
-| `postgresql` | `pg8000`               |
-| `sqlite`**   | `pysqlite`             |
+| Dialect      | Driver       |
+| :---         | :---         |
+| `bigquery`   | `pybigquery` |
+| `db2`        | `ibm_db`     |
+| `informix`   | `ifx_jdbc`   |
+| `mssql`      | `pymssql`    |
+| `mysql`      | `pymysql`    |
+| `oracle`     | `cx_oracle`  |
+| `postgresql` | `pg8000`     |
+| `sqlite`**   | `pysqlite`   |
 
 To install any combination of these SQLAlchemy drivers, substitute their dialect identifiers, delimited by commas, within the brackets shown in the previous example *(see [Supported Drivers](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases) for details about other SQLAlchemy drivers not mapped to the predefined dialects above)*.
 
@@ -104,7 +109,7 @@ In non-CF environments, services can be defined via a YAML configuration file (d
 
 ```yaml
 ---
-METREX_DB_MYSQL_EXAMPLE:
+METREX_DB_MYSQL:
   name: database_name
   hostname: mysql.mydomain.com
   port: 3306
@@ -113,12 +118,12 @@ METREX_DB_MYSQL_EXAMPLE:
   encrypted: false
   dialect: mysql
   driver: pymysql
-METREX_DB_BIGQUERY_EXAMPLE:
+METREX_DB_BIGQUERY:
   project: gcp-project-name
   location: US
   credentials_path: /path/to/service/account/credentials.json
   dialect: bigquery
-METREX_DB_SQLITE_EXAMPLE:
+METREX_DB_SQLITE:
   path: /path/to/database/file.db
   dialect: sqlite
 METREX_API_APPD:
@@ -138,6 +143,12 @@ METREX_API_GITHUB:
   apikey: github_apikey
   encrypted: false
   vendor: github
+METREX_API_NEWRELIC:
+  hostname: api.newrelic.com
+  account_id: account_id
+  apikey: newrelic_apikey
+  encrypted: false
+  vendor: newrelic
 ```
 
 ### Database Connection Parameters
@@ -154,6 +165,11 @@ For database connections (except BigQuery and SQLite), the following parameters 
 - `dialect`: Dialect identifier *(refer to table of Dialect/Driver mappings in [Database Engines](#database-engines) section above)*
 - `driver`: SQLAlchemy driver *(refer to table of Dialect/Driver mappings in [Database Engines](#database-engines) section above)*
 - `timezone`: Localized [database timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) to apply to "naive" (non-TZ-aware) `timestamp_column` values returned by metric exporter jobs (optional, to override the **DB_DEFAULT_LOCAL_TZ** env variable)
+
+In addition to the above, the following parameters for establishing SSL connections are supported for MySQL and PostgreSQL databases:
+- `ssl_ca`: Full path to a file of concatenated CA certificates in PEM format
+- `ssl_cert`: Full path to a single file in PEM format containing the certificate as well as any number of CA certificates needed to establish the certificate’s authenticity
+- `ssl_key`: Full path to a file containing the private key
 
 For BigQuery connections, the following parameters are used:
 - `project`: Name of the GCP project (defaults to the project specified in the credentials JSON file)
@@ -177,11 +193,14 @@ The names assigned to services containing API connection details must begin with
 - [AppDynamics](https://docs.appdynamics.com/display/PRO43/Metric+and+Snapshot+API)
 - [ExtraHop](https://docs.extrahop.com/7.9/rest-extract-metrics)
 - [GitHub](https://developer.github.com/v3/)*
+- [New Relic](https://docs.newrelic.com/docs/apis/nerdgraph/)
+- [Prometheus-to-Graphite bridge](https://github.com/prometheus/client_python#graphite)**
 - [Prometheus Pushgateway](https://github.com/prometheus/pushgateway)**
+- [Wavefront](https://github.com/wavefrontHQ/wavefront-sdk-python)**
 
 *GitHub connectivity is provided only as a means to access metric exporter job definitions in a source repository *(see [Defining Jobs in a GitHub Repository](#defining-jobs-in-a-github-repository) section below)*. It cannot be used as a `service` parameter in individual exporter job definitions.
 
-**Pushgateway connectivity is provided to allow exporter job metrics to be forwarded to a Prometheus Pushgateway server *(see [Exposing Metrics to a Pushgateway](#exposing-metrics-to-a-pushgateway) section below)*. It cannot be used as a `service` parameter in individual exporter job definitions.
+**Prometheus-to-Graphite bridge, Pushgateway and Wavefront connectivity is provided to allow exporter job metrics to be sent to other services *(see [Pushing Metrics](#pushing-metrics) section below)*. These cannot be used as a `service` parameter in individual exporter job definitions.
 
 The parameters to be included for each API connection type are shown below.
 
@@ -208,13 +227,34 @@ GitHub API connections:
 - `encrypted`: "true" (recommended) if `apikey` value is encrypted or "false" if it is not
 - `vendor`: "github"
 
-Pushgateway API connections:
+New Relic API connections:
+- `hostname`: New Relic API server name ("api.newrelic.com" in most cases) or IP address
+- `port`: Port number (optional)
+- `apikey`: New Relic user key
+- `encrypted`: "true" (recommended) if `apikey` value is encrypted or "false" if it is not
+- `vendor`: "newrelic"
+
+Prometheus-to-Graphite bridge API connections:
+- `hostname`: Graphite bridge server name or IP address
+- `port`: Port number (optional)
+- `prefix`: Prefix to use for all metric names - e.g., "dev.", "prod.system.", etc. (optional)
+- `vendor`: "graphite"
+
+Prometheus Pushgateway API connections:
 - `hostname`: Pushgateway server name or IP address (include "https://" for secure server connections)
 - `port`: Port number (optional)
 - `username`: User name (optional, for connections requiring Basic auth)
 - `password`: Password (optional, for connections requiring Basic auth)
 - `encrypted`: "true" (recommended) if `password` value is encrypted or "false" if it is not (optional, for connections requiring Basic auth)
 - `vendor`: "pushgateway"
+
+Wavefront API connections:
+- `hostname`: Wavefront server name or IP address (include "http://" or "https://" for direct ingestion, or "proxy://" for proxy server)
+- `port`: Port number (optional)
+- `apikey`: API token (optional)
+- `encrypted`: "true" (recommended) if `apikey` value is encrypted or "false" if it is not
+- `prefix`: Prefix to use for all metric names - e.g., "dev.", "prod.system.", etc. (optional)
+- `vendor`: "wavefront"
 
 ### Encrypting Credentials
 
@@ -223,7 +263,7 @@ For security purposes, it is recommended that database passwords and API keys be
 To configure the application to decrypt a password or API key for a given connection at runtime, set the `encrypted` property to "true", as shown in the following example:
 
 ```yaml
-METREX_DB_MYSQL_EXAMPLE:
+METREX_DB_MYSQL:
   name: database_name
   hostname: mysql.mydomain.com
   port: 3306
@@ -280,11 +320,15 @@ In non-CF environments, jobs can be added to the same YAML-formatted configurati
 ```yaml
 METREX_JOB_QUERY_EXAMPLE:
   services:
-    - METREX_DB_MYSQL_EXAMPLE
+    - METREX_DB_MYSQL
   interval_minutes: 5
   statement: SELECT col1, col2, col3 FROM my_table
-  value_columns: col1, col2
-  static_labels: name:value
+  value_columns:
+    - col1
+    - col2
+  static_labels:
+    label1: value
+    label2: value
 METREX_JOB_APPD_EXAMPLE:
   services:
     - METREX_API_APPD
@@ -311,7 +355,13 @@ METREX_JOB_EXTRAHOP_EXAMPLE:
     threshold:
       operator: ">"
       value: 10
-  static_labels: name:value
+METREX_JOB_NEWRELIC_EXAMPLE:
+  services:
+    - METREX_API_NEWRELIC
+  interval_minutes: 15
+  statement: FROM Transaction SELECT average(duration) AS 'avg_duration', appName FACET appName
+  value_attrs:
+    - avg_duration
 ```
 
 ### Defining Jobs in a GitHub Repository
@@ -322,11 +372,15 @@ Metric exporter jobs can also be defined via a YAML-formatted config file hosted
 ---
 QUERY_EXAMPLE:
   services:
-    - METREX_DB_MYSQL_EXAMPLE
+    - METREX_DB_MYSQL
   interval_minutes: 5
   statement: SELECT col1, col2, col3 FROM my_table
-  value_columns: col1, col2
-  static_labels: name:value
+  value_columns:
+    - col1
+    - col2
+  static_labels:
+    label1: value
+    label2: value
 APPD_EXAMPLE:
   services:
     - METREX_API_APPD
@@ -353,7 +407,13 @@ EXTRAHOP_EXAMPLE:
     threshold:
       operator: ">"
       value: 10
-  static_labels: name:value
+NEWRELIC_EXAMPLE:
+  services:
+    - METREX_API_NEWRELIC
+  interval_minutes: 15
+  statement: FROM Transaction SELECT average(duration) AS 'avg_duration', appName FACET appName
+  value_attrs:
+    - avg_duration
 ```
 
 There is no prefix requirement for GitHub-hosted job names. However, the name referenced in the job's `service` parameter must match the full service name (prefix included) defined in CF.
@@ -374,29 +434,38 @@ Changes to the jobs config file referenced by these env variables will be picked
 The parameters to be included for each metric exporter job type are shown below.
 
 Database queries:
-- `services`: A list of one or more service names containing the database connection details, from which job metrics will be exported
+- `services`: A list of one or more service names referencing database connections, from which the job metrics will be sourced
+- `push_services`: (optional) A list of one or more service names referencing push service API connections, to which the job metrics will be sent
 - `interval_minutes`: The interval (in minutes) to wait between each execution of the job
 - `statement`: SELECT query
-- `value_columns`: A comma-delimited list of one or more column names representing numeric metric values (any columns returned via the query which do not match the names in this list will be used as metric "labels")
-- `static_labels`: (optional) A comma-delimited list of `label:value` pairs to apply as static labels for all metrics
+- `value_columns`: A list of one or more returned column names representing numeric metric values (any columns returned via the query which do not match the names in this list will be used as metric "labels")
+- `static_labels`: (optional) One or more `key: value` pairs to apply as static labels for all metrics (static label names must not conflict with returned column names)
 - `timestamp_column`: (optional) The name of a column returned by the SQL query to use as the metric timestamp (ignored when metrics are exposed via Pushgateway)
 
 AppDynamics metrics:
-- `services`: A list of one or more service names containing the API connection details, from which job metrics will be exported*
+- `services`: A list of one or more service names referencing AppDynamics API connections, from which the job metrics will be sourced
+- `push_services`: (optional) A list of one or more service names referencing push service API connections, to which the job metrics will be sent
 - `interval_minutes`: The interval (in minutes) to wait between each execution of the job
 - `application`: The Application name as it appears in AppD (for Database metrics, value is always "Database Monitoring")
-- `metric_path`: The AppD metrics path. May include wildcards (`*`).
-- `static_labels`: (optional) A comma-delimited list of `label:value` pairs to apply as static labels for all metrics
+- `metric_path`: The AppD metrics path; may include wildcards (`*`)
+- `static_labels`: (optional) One or more `key: value` pairs to apply as static labels for all metrics
 
 ExtraHop metrics:
-- `services`: A list of one or more service names containing the API connection details, from which job metrics will be exported*
+- `services`: A list of one or more service names referencing ExtraHop API connections, from which the job metrics will be sourced
+- `push_services`: (optional) A list of one or more service names referencing push service API connections, to which the job metrics will be sent
 - `interval_minutes`: The interval (in minutes) to wait between each execution of the job
 - `metric_params`: The list of parameters passed to the ExtraHop `/metrics` API endpoint
-- `metric_name`: The identifier to be used in the Prometheus metric collector name.
+- `metric_name`: The identifier to be used in the Prometheus metric collector name
 - `aggregation`: The list of parameters used to aggregate the values returned from the ExtraHop API *(see [About Aggregation](#about-aggregation) below)*
-- `static_labels`: (optional) A comma-delimited list of `label:value` pairs to apply as static labels for all metrics
+- `static_labels`: (optional) One or more `key: value` pairs to apply as static labels for all metrics
 
-*NOTE: All names listed in the `services` parameter for a given API job must reference the same vendor.
+New Relic metrics:
+- `services`: A list of one or more service names referencing New Relic API connections, from which the job metrics will be sourced
+- `push_services`: (optional) A list of one or more service names referencing push service API connections, to which the job metrics will be sent
+- `interval_minutes`: The interval (in minutes) to wait between each execution of the job
+- `statement`: NRQL query (excluding SINCE/UNTIL and TIMESERIES clauses)
+- `value_attrs`: A list of one or more returned attribute labels representing numeric metric values (any attributes returned via the query which do not match the names in this list will be used as metric "labels")
+- `static_labels`: (optional) One or more `key: value` pairs to apply as static labels for all metrics (static label names must not conflict with returned attribute names)
 
 ### About Aggregation
 
@@ -438,15 +507,15 @@ JOB_EXAMPLE:
 
 *NOTE: If no `threshold` is specified, the aggregation function will include all returned values.
 
-## Exposing Metrics to a Pushgateway
+## Pushing Metrics
 
-Each metric exporter job exposes its own registry endpoint by default at `/metrics/<job_id>`, which can be scraped by a Prometheus process.
+By default, each metric exporter job exposes its own registry endpoint at `/metrics/<job_id>`, which can be scraped by a Prometheus process. In addition, exporter job metrics can optionally be sent to one or more of the services detailed below.
 
-Exporter job metrics can optionally be exposed to one or more [Prometheus Pushgateway](https://github.com/prometheus/pushgateway) services, which may simplify the process of managing jobs in Prometheus. If a Pushgateway service is defined, all new exporter jobs will automatically be exposed to it, and the metrics will in turn be available in Prometheus by means of scraping the Pushgateway.
+### Exposing Metrics to a Pushgateway
 
-In order to activate this feature, one or more Pushgateway services must be registered *(see example below)* and referenced (comma-delimited, if more than one) by the **PUSHGATEWAY_SERVICES** env variable.
+Metrics can be exposed to one or more [Prometheus Pushgateway](https://github.com/prometheus/pushgateway) services, which may simplify the process of managing jobs in Prometheus.
 
-Pushgateway service definition:
+Defining a Pushgateway service:
 
 ```yaml
 METREX_API_PUSHGATEWAY:
@@ -454,10 +523,58 @@ METREX_API_PUSHGATEWAY:
   vendor: pushgateway
 ```
 
-ENV variable:
+### Pushing Metrics to a Graphite Bridge
+
+Metrics can also be pushed over TCP to a [Graphite bridge](https://github.com/prometheus/client_python#graphite) service, which provides an option to expose metrics to systems other than Prometheus. If a Graphite bridge service is defined, all new exporter jobs will automatically be pushed to it.
+
+Defining a Graphite bridge service:
+
+```yaml
+METREX_API_GRAPHITE:
+  hostname: graphite.mydomain.com
+  port: 2003
+  prefix: my.prefix.
+  vendor: graphite
+```
+
+### Pushing Metrics to Wavefront
+
+As an alternative to Prometheus, metrics can be sent to one or more [Wavefront](https://www.wavefront.com/) services. If a Wavefront service is defined, all new exporter jobs will automatically be pushed to it.
+
+Defining a Wavefront service:
+
+```yaml
+METREX_API_WAVEFRONT:
+  hostname: mydomain.wavefront.com
+  port: 2878
+  prefix: my.prefix.
+  vendor: wavefront
+```
+
+### Activating Push Services
+
+Metrics can be configured to be sent to one or more push services on a per-job basis or on a global basis for all jobs.
+
+To configure a specific job to send metrics to one or more push services, include the `push_services` attribute in the job definition to list the services.
+
+Example: Send metrics to push services for a job
+
+```yaml
+JOB_EXAMPLE:
+  services:
+    - METREX_DB_MYSQL
+  push_services:
+    - METREX_API_GRAPHITE
+  interval_minutes: 5
+  statement: SELECT col1 FROM my_table
+  value_columns:
+    - col1
+```
+
+To send all exporter job metrics to one or more push services, list them (comma-delimited, if more than one) via the ENV variable **SEND_ALL_JOBS_TO_SERVICES**:
 
 ```dotenv
-PUSHGATEWAY_SERVICES=METREX_API_PUSHGATEWAY
+SEND_ALL_JOBS_TO_SERVICES=METREX_API_PUSHGATEWAY,METREX_API_WAVEFRONT
 ```
 
 ## Running the Application

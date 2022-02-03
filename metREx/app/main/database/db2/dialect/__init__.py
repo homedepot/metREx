@@ -2,6 +2,8 @@ from ibm_db_sa.ibm_db import dialect
 
 
 class DB2Dialect(dialect):
+    supports_statement_cache = False
+
     def get_isolation_level(self, connection):
         return 'CS'
 
