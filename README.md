@@ -20,7 +20,7 @@ Supported database engines include:
 Prometheus metrics can also be generated from the following monitoring systems:
 - [AppDynamics](https://www.appdynamics.com/)
 - [ExtraHop](https://www.extrahop.com/)
-- [NewRelic](https://www.newrelic.com/)
+- [New Relic](https://www.newrelic.com/)
 
 ## Table of Contents
 
@@ -193,7 +193,7 @@ The names assigned to services containing API connection details must begin with
 - [AppDynamics](https://docs.appdynamics.com/display/PRO43/Metric+and+Snapshot+API)
 - [ExtraHop](https://docs.extrahop.com/7.9/rest-extract-metrics)
 - [GitHub](https://developer.github.com/v3/)*
-- [NewRelic](https://docs.newrelic.com/docs/apis/nerdgraph/)
+- [New Relic](https://docs.newrelic.com/docs/apis/nerdgraph/)
 - [Prometheus-to-Graphite bridge](https://github.com/prometheus/client_python#graphite)**
 - [Prometheus Pushgateway](https://github.com/prometheus/pushgateway)**
 - [Wavefront](https://github.com/wavefrontHQ/wavefront-sdk-python)**
@@ -227,10 +227,10 @@ GitHub API connections:
 - `encrypted`: "true" (recommended) if `apikey` value is encrypted or "false" if it is not
 - `vendor`: "github"
 
-NewRelic API connections:
-- `hostname`: NewRelic API server name ("api.newrelic.com" in most cases) or IP address
+New Relic API connections:
+- `hostname`: New Relic API server name ("api.newrelic.com" in most cases) or IP address
 - `port`: Port number (optional)
-- `apikey`: NewRelic user key
+- `apikey`: New Relic user key
 - `encrypted`: "true" (recommended) if `apikey` value is encrypted or "false" if it is not
 - `vendor`: "newrelic"
 
@@ -459,8 +459,8 @@ ExtraHop metrics:
 - `aggregation`: The list of parameters used to aggregate the values returned from the ExtraHop API *(see [About Aggregation](#about-aggregation) below)*
 - `static_labels`: (optional) One or more `key: value` pairs to apply as static labels for all metrics
 
-NewRelic metrics:
-- `services`: A list of one or more service names referencing NewRelic API connections, from which the job metrics will be sourced
+New Relic metrics:
+- `services`: A list of one or more service names referencing New Relic API connections, from which the job metrics will be sourced
 - `push_services`: (optional) A list of one or more service names referencing push service API connections, to which the job metrics will be sent
 - `interval_minutes`: The interval (in minutes) to wait between each execution of the job
 - `statement`: NRQL query (excluding SINCE/UNTIL and TIMESERIES clauses)
