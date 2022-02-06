@@ -3,16 +3,17 @@ FROM python:3.7-slim AS build-image
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    default-libmysqlclient-dev \
-    gcc \
-    jq \
-    libcurl4-openssl-dev \
-    libpq-dev \
-    libssl-dev \
-    python3-dev \
-    unixodbc-dev && \
+        build-essential \
+        curl \
+        default-libmysqlclient-dev \
+        freetds-dev \
+        gcc \
+        jq \
+        libcurl4-openssl-dev \
+        libpq-dev \
+        libssl-dev \
+        python3-dev \
+        unixodbc-dev && \
     pip install virtualenv
 
 WORKDIR /usr/src
@@ -26,10 +27,10 @@ FROM python:3.7-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libmariadb-dev-compat \
-    libodbc1 \
-    libpq5 \
-    libxml2 && \
+        libmariadb-dev-compat \
+        libodbc1 \
+        libpq5 \
+        libxml2 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
