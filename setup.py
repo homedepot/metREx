@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 
 from setuptools import find_packages, setup
@@ -60,14 +61,18 @@ INSTALL_REQUIRES = list(get_requirements_from_file())
 
 EXTRAS = [
     'bigquery',
-    'db2',
-    'informix',
     'mssql',
     'mysql',
     'oracle',
     'postgresql',
     'sqlite'
 ]
+
+if not (platform.system() == 'Linux' and platform.machine() == 'aarch64'):
+    EXTRAS += [
+        'db2',
+        'informix'
+    ]
 
 EXTRAS_REQUIRE = {extra: list(get_requirements_from_file(extra)) for extra in EXTRAS}
 
