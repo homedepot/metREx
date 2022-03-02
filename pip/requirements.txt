@@ -2,6 +2,7 @@ Flask-APIAlchemy
 Flask-APScheduler
 Flask-SQLAlchemy>=2.5.0
 Flask-Script
+MarkupSafe==2.0.1
 PyYAML
 SQLAlchemy>=1.4
 Werkzeug<2.0,>=0.15
