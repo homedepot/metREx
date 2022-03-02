@@ -494,6 +494,30 @@ class Metrics:
 
     @staticmethod
     def _get_extrahop_metrics(job_name, service_names, params, metric, aggregation, minutes, static_labels=()):
+        def _get_metrics():
+            _metrics = []
+
+            options = {**params, **{
+                'from': '-%dm' % minutes,
+                'until': 0
+            }}
+
+            _result = dal.client.get_metrics(**options)
+
+            if 'xid' in _result.keys():
+                xid = _result['xid']
+                num_results = _result['num_results']
+
+                for i in range(num_results):
+                    _result = dal.client.get_metrics_by_xid(xid)
+
+                    if 'stats' in _result.keys():
+                        _metrics.append(_result['stats'])
+            elif 'stats' in _result.keys():
+                _metrics.append(_result['stats'])
+
+            return _metrics
+
         collector_metrics = {}
 
         aggregation = test_aggregation_settings(aggregation, job_name)
@@ -507,34 +531,32 @@ class Metrics:
 
                 aps.app.logger.info("Initialized connection for job '" + job_name + "' to ExtraHop service '" + service_name + "'.")
 
-                options = {**params, **{
-                    'from': '-%dm' % minutes,
-                    'until': 0
-                }}
-
-                result = dal.client.get_metrics(**options)
+                result = _get_metrics()
 
                 timestamp = datetime.now(timezone.utc).timestamp()
 
-                if 'stats' in result.keys():
+                if result:
                     metric_dict = OrderedDict()
 
-                    for row in result['stats']:
-                        if row['values']:
-                            if row['values'][0]:
-                                metric_spec_name = row['values'][0][0]['key']['str']
+                    for stats in result:
+                        for i in stats:
+                            for value in i['values']:
+                                if isinstance(value, list):
+                                    for j in value:
+                                        if 'key' in j.keys():
+                                            if j['key']['key_type'] == 'string':
+                                                metric_spec_name = j['key']['str']
+                                                value = int(j['value'])
 
-                                if metric_spec_name not in metric_dict.keys():
-                                    metric_dict[metric_spec_name] = []
+                                                if metric_spec_name not in metric_dict.keys():
+                                                    metric_dict[metric_spec_name] = []
 
-                                value = int(row['values'][0][0]['value'])
-
-                                if test_aggregation_match(value, aggregation):
-                                    metric_dict[metric_spec_name].append(value)
+                                                if test_aggregation_match(value, aggregation):
+                                                    metric_dict[metric_spec_name].append(value)
 
                     for metric_spec_name, values in metric_dict.items():
                         label_dict = OrderedDict([
-                            ('metric_spec_name', metric_spec_name.lower())
+                            ('metric_spec_name', metric_spec_name)
                         ])
 
                         if service_names['push'] or aps.app.config['DEFAULT_PUSH_SERVICE_NAMES']:
