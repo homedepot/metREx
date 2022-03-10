@@ -139,7 +139,6 @@ METREX_API_EXTRAHOP:
   encrypted: false
   vendor: extrahop
 METREX_API_GITHUB:
-  hostname: github.com
   apikey: github_apikey
   encrypted: false
   vendor: github
@@ -221,7 +220,7 @@ ExtraHop API connections:
 - `vendor`: "extrahop"
 
 GitHub API connections:
-- `hostname`: GitHub server name or IP address
+- `hostname`: Custom GitHub Enterprise server name or IP address (only include if not using standard GitHub.com)
 - `port`: Port number (optional)
 - `apikey`: GitHub API key
 - `encrypted`: "true" (recommended) if `apikey` value is encrypted or "false" if it is not
