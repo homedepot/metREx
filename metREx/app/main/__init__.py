@@ -167,6 +167,7 @@ def create_app(config_name):
         app.register_blueprint(blueprint)
     except Exception as e:
         app.logger.critical(e)
+        app.logger.debug(traceback.format_exc())
         exit(1)
 
     return app

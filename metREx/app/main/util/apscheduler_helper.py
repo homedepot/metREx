@@ -312,7 +312,7 @@ def get_jobs_from_source(aa, apialchemy_info):
                             jobs_source_path = os.getenv('JOBS_SOURCE_PATH')
 
                             if jobs_source_path is not None:
-                                jobs_source_branch = os.getenv('JOBS_SOURCE_BRANCH', 'master')
+                                jobs_source_branch = os.getenv('JOBS_SOURCE_BRANCH', 'main')
 
                                 dal = GitHub(aa)
                                 dal.init_aa(service_name)
