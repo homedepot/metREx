@@ -27,7 +27,7 @@ The following ENV variables can be used to configure various application behavio
 - **JOBS_SOURCE_SERVICE**: The name of the service containing GitHub API connection details.
 - **JOBS_SOURCE_ORG**: The name of the GitHub org in which job definitions are hosted.
 - **JOBS_SOURCE_REPO**: The name of the GitHub repository in which job definitions are hosted.
-- **JOBS_SOURCE_BRANCH**: (Default: `master`) The branch name of the GitHub-hosted job definitions.
+- **JOBS_SOURCE_BRANCH**: (Default: `main`) The branch name of the GitHub-hosted job definitions.
 - **JOBS_SOURCE_PATH**: The relative file path to GitHub-hosted job definitions.
 - **JOBS_SOURCE_REFRESH_INTERVAL**: (Default: `60`) An integer value representing the polling interval, expressed in minutes, for checking a GitHub-hosted job repository for changes to job definitions.
 - **SEND_ALL_JOBS_TO_SERVICES**: The name(s) of the push service(s) to which all exporter job metrics will be sent (comma-delimited, if more than one).
